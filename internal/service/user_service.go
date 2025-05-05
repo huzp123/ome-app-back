@@ -1,6 +1,7 @@
 package service
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
@@ -45,47 +46,74 @@ type RegisterResponse struct {
 
 // Register 用户注册
 func (s *UserService) Register(req RegisterRequest) (*RegisterResponse, error) {
+	// 记录开始处理注册请求
+	fmt.Printf("[用户注册] 开始处理注册请求: 手机号=%s, 邮箱=%s, 用户名=%s\n", req.Phone, req.Email, req.UserName)
+
+	// 验证用户至少提供了手机号或邮箱之一
+	if req.Phone == "" && req.Email == "" {
+		fmt.Printf("[用户注册] 手机号和邮箱均为空\n")
+		return nil, errors.New("请至少提供手机号或邮箱")
+	}
+
 	// 检查手机号是否已存在
 	if req.Phone != "" {
 		existUser, _ := s.userDAO.GetByPhone(req.Phone)
 		if existUser != nil {
+			fmt.Printf("[用户注册] 手机号已注册: %s\n", req.Phone)
 			return nil, errors.New("手机号已注册")
 		}
+		fmt.Printf("[用户注册] 手机号检查通过: %s\n", req.Phone)
 	}
 
 	// 检查邮箱是否已存在
 	if req.Email != "" {
 		existUser, _ := s.userDAO.GetByEmail(req.Email)
 		if existUser != nil {
+			fmt.Printf("[用户注册] 邮箱已注册: %s\n", req.Email)
 			return nil, errors.New("邮箱已注册")
 		}
+		fmt.Printf("[用户注册] 邮箱检查通过: %s\n", req.Email)
 	}
 
 	// 加密密码
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
+		fmt.Printf("[用户注册] 密码加密失败: %v\n", err)
 		return nil, errors.New("密码加密失败")
 	}
+	fmt.Printf("[用户注册] 密码加密成功\n")
 
 	// 创建用户
 	user := &model.AppUser{
 		UserName:     req.UserName,
-		Phone:        req.Phone,
-		Email:        req.Email,
 		PasswordHash: string(hashedPassword),
-		// BirthDate字段不设置，将使用数据库默认值NULL
+		// 使用sql.NullString正确处理空值
+		Phone: sql.NullString{
+			String: req.Phone,
+			Valid:  req.Phone != "",
+		},
+		Email: sql.NullString{
+			String: req.Email,
+			Valid:  req.Email != "",
+		},
+		// 身高、性别和出生日期在完善个人资料时再填写
 	}
 
 	if err := s.userDAO.Create(user); err != nil {
-		return nil, errors.New("创建用户失败")
+		fmt.Printf("[用户注册] 创建用户失败: %v\n", err)
+		return nil, errors.New("创建用户失败: " + err.Error())
 	}
+	fmt.Printf("[用户注册] 成功创建用户, ID: %d\n", user.ID)
 
 	// 生成JWT Token
 	token, err := middleware.GenerateToken(user.ID)
 	if err != nil {
+		fmt.Printf("[用户注册] 生成令牌失败: %v\n", err)
 		return nil, errors.New("生成令牌失败")
 	}
+	fmt.Printf("[用户注册] 生成令牌成功\n")
 
+	fmt.Printf("[用户注册] 注册流程完成: 用户ID=%d, 用户名=%s\n", user.ID, user.UserName)
 	return &RegisterResponse{
 		UserID: user.ID,
 		Token:  token,
@@ -130,7 +158,7 @@ func (s *UserService) Login(req LoginRequest) (*LoginResponse, error) {
 	}
 
 	// 检查用户档案是否完善
-	isProfileComplete := user.HeightCM > 0 && !user.BirthDate.IsZero() && user.Sex != ""
+	isProfileComplete := user.HeightCM.Valid && !user.BirthDate.IsZero() && user.Sex != ""
 
 	// 生成JWT Token
 	token, err := middleware.GenerateToken(user.ID)
@@ -139,7 +167,11 @@ func (s *UserService) Login(req LoginRequest) (*LoginResponse, error) {
 	}
 
 	// 打印用户信息用于调试
-	fmt.Printf("用户登录: ID=%d, UserName=%s, Email=%s\n", user.ID, user.UserName, user.Email)
+	email := "未设置"
+	if user.Email.Valid {
+		email = user.Email.String
+	}
+	fmt.Printf("用户登录: ID=%d, UserName=%s, Email=%s\n", user.ID, user.UserName, email)
 
 	return &LoginResponse{
 		UserID:            user.ID,
@@ -152,6 +184,8 @@ func (s *UserService) Login(req LoginRequest) (*LoginResponse, error) {
 // UpdateProfileRequest 更新用户档案请求
 type UpdateProfileRequest struct {
 	UserID    int64   `json:"user_id"`
+	Phone     string  `json:"phone"`
+	Email     string  `json:"email"`
 	HeightCM  float64 `json:"height_cm"`
 	BirthDate string  `json:"birth_date"` // 格式 YYYY-MM-DD
 	Sex       string  `json:"sex"`        // male/female/other
@@ -166,12 +200,35 @@ func (s *UserService) UpdateProfile(req UpdateProfileRequest) error {
 		return errors.New("获取用户信息失败")
 	}
 
+	// 更新手机号
+	if req.Phone != "" {
+		// 检查手机号是否已被其他用户使用
+		existingUser, _ := s.userDAO.GetByPhone(req.Phone)
+		if existingUser != nil && existingUser.ID != req.UserID {
+			return errors.New("手机号已被其他用户使用")
+		}
+		user.Phone.String = req.Phone
+		user.Phone.Valid = true
+	}
+
+	// 更新邮箱
+	if req.Email != "" {
+		// 检查邮箱是否已被其他用户使用
+		existingUser, _ := s.userDAO.GetByEmail(req.Email)
+		if existingUser != nil && existingUser.ID != req.UserID {
+			return errors.New("邮箱已被其他用户使用")
+		}
+		user.Email.String = req.Email
+		user.Email.Valid = true
+	}
+
 	// 更新身高
 	if req.HeightCM > 0 {
 		if req.HeightCM < 50 || req.HeightCM > 300 {
 			return errors.New("身高超出合理范围(50-300cm)")
 		}
-		user.HeightCM = req.HeightCM
+		user.HeightCM.Float64 = req.HeightCM
+		user.HeightCM.Valid = true
 	}
 
 	// 更新出生日期

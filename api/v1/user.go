@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -25,11 +26,23 @@ func (api *UserAPI) Register(c *gin.Context) {
 		return
 	}
 
+	// 记录注册请求
+	clientIP := c.ClientIP()
+	fmt.Printf("[注册请求] IP: %s, 手机号: %s, 邮箱: %s, 用户名: %s\n",
+		clientIP, req.Phone, req.Email, req.UserName)
+
 	resp, err := api.userService.Register(req)
 	if err != nil {
+		// 记录注册失败
+		fmt.Printf("[注册失败] IP: %s, 手机号: %s, 邮箱: %s, 错误: %s\n",
+			clientIP, req.Phone, req.Email, err.Error())
 		errcode.ServerError.WithDetails(err.Error()).Response(c)
 		return
 	}
+
+	// 记录注册成功
+	fmt.Printf("[注册成功] 用户ID: %d, IP: %s, 手机号: %s, 邮箱: %s\n",
+		resp.UserID, clientIP, req.Phone, req.Email)
 
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0,

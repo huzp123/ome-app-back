@@ -65,7 +65,7 @@ func (s *HealthAnalysisService) GenerateAnalysis(req AnalysisRequest) (*Analysis
 	}
 
 	// 检查用户信息是否完整
-	if user.HeightCM <= 0 || user.BirthDate.IsZero() || user.Sex == "" {
+	if !user.HeightCM.Valid || user.BirthDate.IsZero() || user.Sex == "" {
 		return nil, errors.New("请先完善个人资料")
 	}
 
@@ -82,11 +82,11 @@ func (s *HealthAnalysisService) GenerateAnalysis(req AnalysisRequest) (*Analysis
 	}
 
 	// 计算BMI
-	bmi := calculateBMI(weightRecord.WeightKG, user.HeightCM)
+	bmi := calculateBMI(weightRecord.WeightKG, user.HeightCM.Float64)
 	bmiCategory := getBMICategory(bmi)
 
 	// 计算基础代谢率(BMR)
-	bmr := calculateBMR(user.Sex, weightRecord.WeightKG, user.HeightCM, calculateAge(user.BirthDate))
+	bmr := calculateBMR(user.Sex, weightRecord.WeightKG, user.HeightCM.Float64, calculateAge(user.BirthDate))
 
 	// 计算每日总能量消耗(TDEE)，假设轻度活动水平系数为1.375
 	tdee := bmr * 1.375

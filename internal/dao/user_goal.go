@@ -48,6 +48,11 @@ func (d *UserGoalDAO) CreateOrUpdate(userID int64, goalType string, targetWeight
 	weeklyChangeKG float64, targetDate time.Time, dietType string,
 	tastePreferences []string, foodIntolerances []string) error {
 
+	// 先查询是否已存在该用户的目标
+	var existingGoal model.UserGoal
+	result := d.db.Where("user_id = ?", userID).First(&existingGoal)
+
+	// 准备更新或创建的数据
 	goal := model.UserGoal{
 		UserID:           userID,
 		GoalType:         goalType,
@@ -59,5 +64,17 @@ func (d *UserGoalDAO) CreateOrUpdate(userID int64, goalType string, targetWeight
 		FoodIntolerances: foodIntolerances,
 	}
 
-	return d.db.Create(&goal).Error
+	// 如果记录已存在，执行更新
+	if result.Error == nil {
+		goal.ID = existingGoal.ID // 保留原ID
+		return d.db.Save(&goal).Error
+	}
+
+	// 如果记录不存在且错误是"记录未找到"，则创建新记录
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return d.db.Create(&goal).Error
+	}
+
+	// 其他错误直接返回
+	return result.Error
 }
