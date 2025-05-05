@@ -1,0 +1,127 @@
+flowchart LR
+%% 前端主要界面 (一级子图)
+subgraph Home [首页]
+direction TB
+homeMain[界面]
+subgraph overviewModule [健康摘要模块]
+direction TB
+previewCard[健康预览卡片]
+analysisLink[查看分析按钮]
+end
+subgraph todayRecModule [今日推荐模块]
+direction TB
+recCard[今日推荐卡片]
+end
+subgraph userCenterModule [个人中心模块]
+direction TB
+profileBtn[档案入口按钮]
+end
+end
+subgraph Analysis [健康分析页]
+direction TB
+analysisMain[界面]
+subgraph summaryModule [健康报告模块]
+direction TB
+summaryCard[健康摘要卡片]
+trendChart[营养趋势图]
+end
+end
+subgraph Recommend [推荐页]
+direction TB
+recMain[界面]
+subgraph recListModule [推荐列表模块]
+direction TB
+recList[推荐列表]
+end
+end
+subgraph Order [点餐页]
+direction TB
+orderMain[界面]
+subgraph menuModule [菜单模块]
+direction TB
+menuList[菜品列表]
+end
+subgraph cartModule [购物车模块]
+direction TB
+cartSummary[订单摘要]
+end
+end
+subgraph Profile [用户档案页]
+direction TB
+profileMain[界面]
+subgraph infoModule [个人信息模块]
+direction TB
+infoForm[信息表单]
+end
+subgraph goalModule [健康目标模块]
+direction TB
+goalSetting[目标设置]
+end
+end
+
+    %% 后台系统结构
+    subgraph Backend [后台系统]
+        direction TB
+        subgraph MerchantSys [商家后台系统]
+            direction TB
+            merchantUI[商家后台界面]
+            dishModule[菜品管理模块]
+        end
+        nutritionTool[营养分析工具]
+        subgraph Databases [数据与数据库]
+            direction TB
+            orderDB[(订单数据库)]
+            dishDB[(菜品营养数据库)]
+        end
+        subgraph AIservices [AI服务]
+            direction TB
+            healthAI[[健康分析Agent]]
+            recAI[[推荐Agent]]
+            orderAI[[点单Agent]]
+        end
+    end
+
+    %% 外部数据源
+    smartAPI[/智能设备 API/]
+    userInput[/用户输入/]
+
+    %% 前端用户操作路径 (实线箭头)
+    previewCard -->|查看分析| analysisLink
+    analysisLink -->|进入健康分析| analysisMain
+    recCard -->|查看推荐| recMain
+    profileBtn -->|查看档案| profileMain
+    analysisMain -->|更多推荐| recMain
+    analysisMain -->|立即下单| orderMain
+    recMain -->|选择菜品| orderMain
+
+    %% AI助手对话框复用组件
+    analysisMain -. 打开 AI对话框 .-> AI_dialog[AI助手对话框]
+    orderMain -. 打开 AI对话框 .-> AI_dialog
+
+    %% AI Agent 调用（虚线箭头表示数据流）
+    analysisMain -. 请求健康分析 .-> healthAI
+    healthAI -. 返回健康建议 .-> AI_dialog
+    recMain -. 请求推荐 .-> recAI
+    recAI -. 推荐列表 .-> recList
+    orderMain -. 请求建议 .-> orderAI
+    orderAI -. 返回点餐建议 .-> AI_dialog
+
+    %% 数据流：AI服务与数据库/数据源交互
+    healthAI -. 历史订单 .-> orderDB
+    healthAI -. 营养数据 .-> dishDB
+    recAI -. 历史订单 .-> orderDB
+    recAI -. 营养数据 .-> dishDB
+
+    %% 数据流：前端与后台数据交互
+    orderMain -. 提交订单 .-> orderDB
+
+    %% 数据流：商家后台与系统交互
+    merchantUI -. 菜品更新 .-> dishModule
+    dishModule -. 营养分析 .-> nutritionTool
+    nutritionTool -. 更新营养数据 .-> dishDB
+    merchantUI -. 查看订单 .-> orderDB
+
+    %% 数据流：外部数据源提供
+    smartAPI -. 健康数据 .-> healthAI
+    userInput -. 手动数据 .-> healthAI
+    userInput -. 偏好设置 .-> recAI

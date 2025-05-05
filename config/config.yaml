@@ -1,0 +1,15 @@
+# 服务器配置
+server:
+  port: 8081
+  mode: debug
+
+database:
+  driver: mysql
+  host: localhost
+  port: 3306
+  username: root
+  password: Lxy203513
+  dbname: ome_app
+  max_idle_conns: 10
+  max_open_conns: 100
+  conn_max_lifetime: 3600
