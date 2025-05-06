@@ -12,6 +12,8 @@ import (
 type Config struct {
 	Server ServerConfig `yaml:"server"`
 	DB     DBConfig     `yaml:"database"`
+	AI     AIConfig     `yaml:"ai"`
+	Upload UploadConfig `yaml:"upload"`
 }
 
 // ServerConfig 服务器配置
@@ -31,6 +33,21 @@ type DBConfig struct {
 	MaxIdleConns    int    `yaml:"max_idle_conns"`
 	MaxOpenConns    int    `yaml:"max_open_conns"`
 	ConnMaxLifetime int    `yaml:"conn_max_lifetime"`
+}
+
+// AIConfig AI服务配置
+type AIConfig struct {
+	APIKey      string  `yaml:"api_key"`
+	APIURL      string  `yaml:"api_url"`
+	Model       string  `yaml:"model"`
+	MaxTokens   int     `yaml:"max_tokens"`
+	Temperature float64 `yaml:"temperature"`
+}
+
+// UploadConfig 文件上传配置
+type UploadConfig struct {
+	Dir     string `yaml:"dir"`
+	MaxSize int64  `yaml:"max_size"`
 }
 
 // GetDSN 获取数据库连接字符串

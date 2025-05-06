@@ -13,3 +13,16 @@ database:
   max_idle_conns: 10
   max_open_conns: 100
   conn_max_lifetime: 3600
+
+# AI服务配置
+ai:
+  api_key: "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"
+  api_url: "https://api.openai.com/v1/chat/completions"
+  model: "gpt-4-vision-preview"
+  max_tokens: 1000
+  temperature: 0.7
+
+# 文件上传配置
+upload:
+  dir: "./uploads"
+  max_size: 10485760 # 10MB

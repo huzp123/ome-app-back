@@ -8,7 +8,8 @@ import (
 )
 
 // SetupRouter 设置API路由
-func SetupRouter(engine *gin.Engine, userAPI *v1.UserAPI, healthAnalysisAPI *v1.HealthAnalysisAPI) {
+func SetupRouter(engine *gin.Engine, userAPI *v1.UserAPI, healthAnalysisAPI *v1.HealthAnalysisAPI,
+	nutritionAPI *v1.NutritionAPI, chatAPI *v1.ChatAPI, foodRecognitionAPI *v1.FoodRecognitionAPI) {
 	// 全局中间件
 	engine.Use(gin.Logger())
 	engine.Use(gin.Recovery())
@@ -44,5 +45,24 @@ func SetupRouter(engine *gin.Engine, userAPI *v1.UserAPI, healthAnalysisAPI *v1.
 		// 健康分析
 		auth.GET("/health/analysis", healthAnalysisAPI.GenerateAnalysis)
 		auth.GET("/health/history", healthAnalysisAPI.GetHistoryAnalysis)
+
+		// 每日营养
+		auth.GET("/nutrition/today", nutritionAPI.GetTodayNutrition)
+		auth.PUT("/nutrition/today", nutritionAPI.UpdateTodayNutrition)
+		auth.GET("/nutrition/history", nutritionAPI.GetNutritionHistory)
+		auth.GET("/nutrition/weekly-summary", nutritionAPI.GetWeekSummary)
+
+		// 聊天会话管理
+		auth.POST("/chat/sessions", chatAPI.CreateSession)
+		auth.GET("/chat/sessions", chatAPI.GetSessions)
+		auth.PUT("/chat/sessions/:session_id", chatAPI.UpdateSessionTitle)
+		auth.DELETE("/chat/sessions/:session_id", chatAPI.DeleteSession)
+		auth.GET("/chat/sessions/:session_id/messages", chatAPI.GetMessages)
+		auth.POST("/chat/sessions/:session_id/messages", chatAPI.SendMessage)
+
+		// 食物识别
+		auth.POST("/food/recognize", foodRecognitionAPI.RecognizeFood)
+		auth.GET("/food/recognition/:id", foodRecognitionAPI.GetRecognitionByID)
+		auth.GET("/food/recognition/today", foodRecognitionAPI.GetTodayRecognitions)
 	}
 }

@@ -237,4 +237,451 @@ GET /health/history?limit=10
     }
   ]
 }
+```
+
+## 每日营养相关接口（需要认证）
+
+### 获取今日营养数据
+
+**请求**
+```
+GET /api/v1/nutrition/today
+```
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": {
+    "id": 1,
+    "user_id": 1,
+    "date": "2023-05-01",
+    "calories_intake": 1200.5,
+    "protein_intake_g": 65.2,
+    "carb_intake_g": 150.3,
+    "fat_intake_g": 40.1,
+    "target_calories": 1800.0,
+    "target_protein_g": 90.0,
+    "target_carb_g": 220.0,
+    "target_fat_g": 60.0,
+    "calories_completion_rate": 66.69,
+    "created_at": "2023-05-01T08:30:00Z",
+    "updated_at": "2023-05-01T18:45:00Z"
+  }
+}
+```
+
+### 更新今日营养摄入数据
+
+**请求**
+```
+PUT /api/v1/nutrition/today
+```
+
+**请求参数**
+```json
+{
+  "calories_intake": 1500.0,
+  "protein_intake_g": 75.5,
+  "carb_intake_g": 180.2,
+  "fat_intake_g": 45.8
+}
+```
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": {
+    "id": 1,
+    "user_id": 1,
+    "date": "2023-05-01",
+    "calories_intake": 1500.0,
+    "protein_intake_g": 75.5,
+    "carb_intake_g": 180.2,
+    "fat_intake_g": 45.8,
+    "target_calories": 1800.0,
+    "target_protein_g": 90.0,
+    "target_carb_g": 220.0,
+    "target_fat_g": 60.0,
+    "calories_completion_rate": 83.33,
+    "created_at": "2023-05-01T08:30:00Z",
+    "updated_at": "2023-05-01T19:15:00Z"
+  }
+}
+```
+
+### 获取营养历史记录
+
+**请求**
+```
+GET /api/v1/nutrition/history?start_date=2023-04-25&end_date=2023-05-01
+```
+
+**查询参数**
+- start_date: 开始日期，格式YYYY-MM-DD
+- end_date: 结束日期，格式YYYY-MM-DD
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": [
+    {
+      "id": 1,
+      "user_id": 1,
+      "date": "2023-05-01",
+      "calories_intake": 1500.0,
+      "protein_intake_g": 75.5,
+      "carb_intake_g": 180.2,
+      "fat_intake_g": 45.8,
+      "target_calories": 1800.0,
+      "target_protein_g": 90.0,
+      "target_carb_g": 220.0,
+      "target_fat_g": 60.0,
+      "calories_completion_rate": 83.33,
+      "created_at": "2023-05-01T08:30:00Z",
+      "updated_at": "2023-05-01T19:15:00Z"
+    },
+    // ... 其他日期的记录
+  ]
+}
+```
+
+### 获取周营养摄入统计
+
+**请求**
+```
+GET /api/v1/nutrition/weekly-summary
+```
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": {
+    "avg_calories": 1450.5,
+    "avg_protein": 72.3,
+    "avg_carb": 175.8,
+    "avg_fat": 48.2,
+    "avg_completion_rate": 80.58
+  }
+}
+```
+
+## AI对话相关接口（需要认证）
+
+### 创建聊天会话
+
+**请求**
+```
+POST /api/v1/chat/sessions
+```
+
+**请求参数**
+```json
+{
+  "title": "午餐咨询" // 可选，会话标题
+}
+```
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": {
+    "id": "sess_1234567890abcdef",
+    "user_id": 1,
+    "title": "午餐咨询",
+    "created_at": "2023-05-01T10:30:00Z",
+    "updated_at": "2023-05-01T10:30:00Z"
+  }
+}
+```
+
+### 获取会话列表
+
+**请求**
+```
+GET /api/v1/chat/sessions
+```
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": [
+    {
+      "id": "sess_1234567890abcdef",
+      "user_id": 1,
+      "title": "午餐咨询",
+      "created_at": "2023-05-01T10:30:00Z",
+      "updated_at": "2023-05-01T11:45:00Z"
+    },
+    {
+      "id": "sess_abcdef1234567890",
+      "user_id": 1,
+      "title": "健康建议",
+      "created_at": "2023-04-28T14:20:00Z",
+      "updated_at": "2023-04-28T14:55:00Z"
+    }
+  ]
+}
+```
+
+### 更新会话标题
+
+**请求**
+```
+PUT /api/v1/chat/sessions/{session_id}
+```
+
+**请求参数**
+```json
+{
+  "title": "减脂午餐咨询"
+}
+```
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": null
+}
+```
+
+### 删除会话
+
+**请求**
+```
+DELETE /api/v1/chat/sessions/{session_id}
+```
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": null
+}
+```
+
+### 获取会话消息历史
+
+**请求**
+```
+GET /api/v1/chat/sessions/{session_id}/messages
+```
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": [
+    {
+      "id": 1,
+      "session_id": "sess_1234567890abcdef",
+      "user_id": 1,
+      "role": "user",
+      "content": "我想知道中午吃什么比较健康?",
+      "created_at": "2023-05-01T10:30:30Z"
+    },
+    {
+      "id": 2,
+      "session_id": "sess_1234567890abcdef",
+      "user_id": 1,
+      "role": "assistant",
+      "content": "午餐建议摄入均衡的蛋白质、碳水和蔬菜...",
+      "created_at": "2023-05-01T10:30:32Z"
+    }
+  ]
+}
+```
+
+### 发送消息
+
+**请求**
+```
+POST /api/v1/chat/sessions/{session_id}/messages
+```
+
+**请求参数**
+```json
+{
+  "content": "我应该如何搭配一顿减脂午餐?"
+}
+```
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": {
+    "user_message": {
+      "id": 3,
+      "session_id": "sess_1234567890abcdef",
+      "user_id": 1,
+      "role": "user",
+      "content": "我应该如何搭配一顿减脂午餐?",
+      "created_at": "2023-05-01T10:35:00Z"
+    },
+    "assistant_message": {
+      "id": 4,
+      "session_id": "sess_1234567890abcdef",
+      "user_id": 1,
+      "role": "assistant",
+      "content": "减脂午餐可以考虑以下搭配：\n1. 主食：选择全谷物...",
+      "created_at": "2023-05-01T10:35:02Z"
+    }
+  }
+}
+```
+
+## 食物识别相关接口（需要认证）
+
+### 识别食物图片
+
+**请求**
+```
+POST /api/v1/food/recognize
+```
+
+**说明**
+- 使用multipart/form-data格式上传
+- 文件大小限制10MB
+
+**表单参数**
+- food_image: 食物图片文件
+- session_id: 可选，关联的聊天会话ID
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": {
+    "image_url": "uploads/user_1/1683806400_abcdef.jpg",
+    "recognized_foods": [
+      {
+        "name": "烤鸡胸肉",
+        "quantity": "约100克",
+        "calories": 165
+      },
+      {
+        "name": "糙米饭",
+        "quantity": "约150克",
+        "calories": 180
+      },
+      {
+        "name": "西兰花",
+        "quantity": "约80克",
+        "calories": 27
+      }
+    ],
+    "nutrition_summary": {
+      "calories_intake": 372,
+      "protein_intake_g": 35.6,
+      "carb_intake_g": 42.8,
+      "fat_intake_g": 7.2
+    },
+    "ai_analysis": "这是一顿均衡的健康餐，蛋白质来源充足，含有复合碳水和蔬菜，总热量适中。"
+  }
+}
+```
+
+### 获取识别记录详情
+
+**请求**
+```
+GET /api/v1/food/recognition/{id}
+```
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": {
+    "image_url": "uploads/user_1/1683806400_abcdef.jpg",
+    "recognized_foods": [
+      {
+        "name": "烤鸡胸肉",
+        "quantity": "约100克",
+        "calories": 165
+      },
+      {
+        "name": "糙米饭",
+        "quantity": "约150克",
+        "calories": 180
+      },
+      {
+        "name": "西兰花",
+        "quantity": "约80克",
+        "calories": 27
+      }
+    ],
+    "nutrition_summary": {
+      "calories_intake": 372,
+      "protein_intake_g": 35.6,
+      "carb_intake_g": 42.8,
+      "fat_intake_g": 7.2
+    },
+    "ai_analysis": "这是一顿均衡的健康餐，蛋白质来源充足，含有复合碳水和蔬菜，总热量适中。"
+  }
+}
+```
+
+### 获取今日识别记录
+
+**请求**
+```
+GET /api/v1/food/recognition/today
+```
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": [
+    {
+      "image_url": "uploads/user_1/1683806400_abcdef.jpg",
+      "recognized_foods": [
+        {
+          "name": "烤鸡胸肉",
+          "quantity": "约100克",
+          "calories": 165
+        },
+        {
+          "name": "糙米饭",
+          "quantity": "约150克",
+          "calories": 180
+        },
+        {
+          "name": "西兰花",
+          "quantity": "约80克",
+          "calories": 27
+        }
+      ],
+      "nutrition_summary": {
+        "calories_intake": 372,
+        "protein_intake_g": 35.6,
+        "carb_intake_g": 42.8,
+        "fat_intake_g": 7.2
+      },
+      "ai_analysis": "这是一顿均衡的健康餐，蛋白质来源充足，含有复合碳水和蔬菜，总热量适中。"
+    },
+    // ... 其他今日记录
+  ]
+}
 ``` 

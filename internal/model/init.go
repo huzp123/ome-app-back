@@ -6,8 +6,17 @@ import (
 
 // InitModels 初始化所有模型关系
 func InitModels(db *gorm.DB) error {
-	// 在这里可以添加数据库初始化逻辑
-	// 比如设置外键关系、创建索引等
+	// 自动迁移表结构
+	err := db.AutoMigrate(
+		&AppUser{},
+		&UserWeight{},
+		&UserGoal{},
+		&HealthAnalysis{},
+		&DailyNutrition{},
+	)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }
