@@ -173,6 +173,32 @@ PUT /user/goal
 }
 ```
 
+### 获取用户健康目标
+
+**请求**
+```
+GET /user/goal
+```
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": {
+    "id": 1,
+    "goal_type": "lose_fat",              // 目标类型: lose_fat/keep_fit/gain_muscle
+    "target_weight_kg": 65.0,             // 目标体重(公斤)
+    "weekly_change_kg": 0.5,              // 每周计划变化的体重(公斤)
+    "target_date": "2023-12-31",          // 目标日期，格式YYYY-MM-DD
+    "diet_type": "normal",                // 饮食类型: normal/vegetarian/low_carb等
+    "taste_preferences": ["清淡", "酸的"], // 口味偏好
+    "food_intolerances": ["海鲜"],         // 食物不耐受/禁忌
+    "created_at": "2023-04-01T12:00:00Z"  // 创建时间
+  }
+}
+```
+
 ## 健康分析相关接口（需要认证）
 
 ### 生成健康分析报告

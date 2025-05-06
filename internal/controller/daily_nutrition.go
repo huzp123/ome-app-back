@@ -6,19 +6,19 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"ome-app-back/internal/dao"
+	"ome-app-back/internal/service"
 	"ome-app-back/pkg/api"
 )
 
 // DailyNutritionController 处理用户每日营养相关API
 type DailyNutritionController struct {
-	nutritionDAO *dao.DailyNutritionDAO
+	nutritionService *service.NutritionService
 }
 
 // NewDailyNutritionController 创建每日营养控制器
-func NewDailyNutritionController(nutritionDAO *dao.DailyNutritionDAO) *DailyNutritionController {
+func NewDailyNutritionController(nutritionService *service.NutritionService) *DailyNutritionController {
 	return &DailyNutritionController{
-		nutritionDAO: nutritionDAO,
+		nutritionService: nutritionService,
 	}
 }
 
@@ -30,9 +30,17 @@ func (c *DailyNutritionController) GetTodayNutrition(ctx *gin.Context) {
 		return
 	}
 
-	today := time.Now()
-	nutrition, err := c.nutritionDAO.GetOrCreate(userID, today)
+	nutrition, err := c.nutritionService.GetTodayNutrition(userID)
 	if err != nil {
+		if err.Error() == "用户尚未生成健康分析报告，请先生成健康分析" {
+			ctx.JSON(http.StatusOK, gin.H{
+				"code":    10001,
+				"msg":     "请先生成健康分析",
+				"data":    nil,
+				"details": []string{"用户尚未生成健康分析报告，无法创建营养记录"},
+			})
+			return
+		}
 		api.ResponseError(ctx, http.StatusInternalServerError, "获取营养数据失败")
 		return
 	}
@@ -62,22 +70,14 @@ func (c *DailyNutritionController) UpdateTodayNutrition(ctx *gin.Context) {
 		return
 	}
 
-	// 获取或创建今日记录
-	today := time.Now()
-	nutrition, err := c.nutritionDAO.GetOrCreate(userID, today)
+	nutrition, err := c.nutritionService.UpdateTodayNutrition(
+		userID,
+		input.CaloriesIntake,
+		input.ProteinIntakeG,
+		input.CarbIntakeG,
+		input.FatIntakeG,
+	)
 	if err != nil {
-		api.ResponseError(ctx, http.StatusInternalServerError, "获取营养数据失败")
-		return
-	}
-
-	// 更新数据
-	nutrition.CaloriesIntake = input.CaloriesIntake
-	nutrition.ProteinIntakeG = input.ProteinIntakeG
-	nutrition.CarbIntakeG = input.CarbIntakeG
-	nutrition.FatIntakeG = input.FatIntakeG
-
-	// 保存更新
-	if err := c.nutritionDAO.Update(nutrition); err != nil {
 		api.ResponseError(ctx, http.StatusInternalServerError, "更新营养数据失败")
 		return
 	}
@@ -119,7 +119,7 @@ func (c *DailyNutritionController) GetNutritionHistory(ctx *gin.Context) {
 	}
 
 	// 获取历史记录
-	records, err := c.nutritionDAO.GetHistory(userID, startDate, endDate)
+	records, err := c.nutritionService.GetNutritionHistory(userID, startDate, endDate)
 	if err != nil {
 		api.ResponseError(ctx, http.StatusInternalServerError, "获取历史记录失败")
 		return
@@ -137,7 +137,7 @@ func (c *DailyNutritionController) GetWeekSummary(ctx *gin.Context) {
 	}
 
 	// 获取一周数据统计
-	summary, err := c.nutritionDAO.GetWeekSummary(userID)
+	summary, err := c.nutritionService.GetWeekSummary(userID)
 	if err != nil {
 		api.ResponseError(ctx, http.StatusInternalServerError, "获取统计数据失败")
 		return

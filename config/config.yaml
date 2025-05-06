@@ -18,9 +18,11 @@ database:
 ai:
   api_key: "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"
   api_url: "https://api.openai.com/v1/chat/completions"
-  model: "gpt-4-vision-preview"
+  model: "gpt-4o-mini"
   max_tokens: 1000
   temperature: 0.7
+  proxy_url: "socks5h://localhost:7891"
+  test_mode: false  # 测试模式，启用后使用硬编码响应，不消耗API资源
 
 # 文件上传配置
 upload:

@@ -298,3 +298,38 @@ func (s *UserService) UpdateGoal(req UpdateGoalRequest) error {
 
 	return nil
 }
+
+// GetUserGoalResponse 获取用户健康目标的响应
+type GetUserGoalResponse struct {
+	ID               int64     `json:"id"`
+	GoalType         string    `json:"goal_type"` // lose_fat/keep_fit/gain_muscle
+	TargetWeightKG   float64   `json:"target_weight_kg"`
+	WeeklyChangeKG   float64   `json:"weekly_change_kg"`
+	TargetDate       string    `json:"target_date"` // 格式 YYYY-MM-DD
+	DietType         string    `json:"diet_type"`   // normal/vegetarian/low_carb等
+	TastePreferences []string  `json:"taste_preferences"`
+	FoodIntolerances []string  `json:"food_intolerances"`
+	CreatedAt        time.Time `json:"created_at"`
+}
+
+// GetGoal 获取用户的健康目标
+func (s *UserService) GetGoal(userID int64) (*GetUserGoalResponse, error) {
+	// 从数据库获取用户目标
+	goal, err := s.userGoalDAO.GetByUserID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	// 转换为响应格式
+	return &GetUserGoalResponse{
+		ID:               goal.ID,
+		GoalType:         goal.GoalType,
+		TargetWeightKG:   goal.TargetWeightKG,
+		WeeklyChangeKG:   goal.WeeklyChangeKG,
+		TargetDate:       goal.TargetDate.Format("2006-01-02"),
+		DietType:         goal.DietType,
+		TastePreferences: goal.TastePreferences,
+		FoodIntolerances: goal.FoodIntolerances,
+		CreatedAt:        goal.CreatedAt,
+	}, nil
+}

@@ -41,6 +41,7 @@ func SetupRouter(engine *gin.Engine, userAPI *v1.UserAPI, healthAnalysisAPI *v1.
 		// 用户信息与档案
 		auth.PUT("/user/profile", userAPI.UpdateProfile)
 		auth.PUT("/user/goal", userAPI.UpdateGoal)
+		auth.GET("/user/goal", userAPI.GetGoal)
 
 		// 健康分析
 		auth.GET("/health/analysis", healthAnalysisAPI.GenerateAnalysis)

@@ -1,6 +1,8 @@
 package dao
 
 import (
+	"errors"
+	"strings"
 	"time"
 
 	"gorm.io/gorm"
@@ -18,8 +20,18 @@ func NewDailyNutritionDAO(db *gorm.DB) *DailyNutritionDAO {
 	return &DailyNutritionDAO{db: db}
 }
 
+// CreateNutritionParams 创建营养记录的参数
+type CreateNutritionParams struct {
+	UserID         int64
+	Date           time.Time
+	TargetCalories float64
+	TargetProteinG float64
+	TargetCarbG    float64
+	TargetFatG     float64
+}
+
 // GetOrCreate 获取或创建指定日期的营养记录
-func (d *DailyNutritionDAO) GetOrCreate(userID int64, date time.Time) (*model.DailyNutrition, error) {
+func (d *DailyNutritionDAO) GetOrCreate(userID int64, date time.Time, targetParams *CreateNutritionParams) (*model.DailyNutrition, error) {
 	// 将时间设置为当天的0点
 	dateOnly := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
 
@@ -30,21 +42,52 @@ func (d *DailyNutritionDAO) GetOrCreate(userID int64, date time.Time) (*model.Da
 		return &nutrition, nil
 	}
 
-	// 不存在则创建新记录，同时获取最新的健康分析设置目标值
-	var analysis model.HealthAnalysis
-	d.db.Where("user_id = ?", userID).Order("created_at DESC").First(&analysis)
+	// 如果不是记录未找到的错误，直接返回错误
+	if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, result.Error
+	}
+
+	// 如果没有提供目标参数，返回错误
+	if targetParams == nil {
+		return nil, errors.New("创建营养记录需要提供目标值参数")
+	}
 
 	// 创建新记录
 	nutrition = model.DailyNutrition{
 		UserID:         userID,
 		Date:           dateOnly,
-		TargetCalories: analysis.RecommendedCalories,
-		TargetProteinG: analysis.ProteinNeedG,
-		TargetCarbG:    analysis.CarbNeedG,
-		TargetFatG:     analysis.FatNeedG,
+		TargetCalories: targetParams.TargetCalories,
+		TargetProteinG: targetParams.TargetProteinG,
+		TargetCarbG:    targetParams.TargetCarbG,
+		TargetFatG:     targetParams.TargetFatG,
 	}
 
-	if err := d.db.Create(&nutrition).Error; err != nil {
+	err := d.db.Create(&nutrition).Error
+	if err != nil {
+		// 处理唯一键冲突的情况
+		// MySQL错误包含 "Duplicate entry" 和 "idx_user_date"
+		if strings.Contains(err.Error(), "Duplicate entry") && strings.Contains(err.Error(), "idx_user_date") {
+			// 如果是唯一键冲突，说明在我们检查和插入之间，有其他请求已经创建了记录
+			// 再次尝试获取记录
+			retryResult := d.db.Where("user_id = ? AND date = ?", userID, dateOnly).First(&nutrition)
+			if retryResult.Error == nil {
+				return &nutrition, nil
+			}
+			return nil, retryResult.Error
+		}
+		return nil, err
+	}
+
+	return &nutrition, nil
+}
+
+// GetByDate 通过日期获取特定用户的营养记录
+func (d *DailyNutritionDAO) GetByDate(userID int64, date time.Time) (*model.DailyNutrition, error) {
+	dateOnly := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, date.Location())
+
+	var nutrition model.DailyNutrition
+	err := d.db.Where("user_id = ? AND date = ?", userID, dateOnly).First(&nutrition).Error
+	if err != nil {
 		return nil, err
 	}
 

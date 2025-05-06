@@ -1,6 +1,11 @@
 package dao
 
 import (
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
+	"time"
+
 	"gorm.io/gorm"
 
 	"ome-app-back/internal/model"
@@ -115,17 +120,22 @@ func (d *ChatDAO) GetLastNMessages(sessionID string, n int) ([]model.ChatMessage
 
 // 生成唯一的会话ID
 func generateSessionID() string {
-	// 实际应用中应使用更安全的方法生成UUID
-	return "sess_" + randomString(16)
-}
-
-// 生成随机字符串
-func randomString(length int) string {
-	// 简化实现，实际应使用crypto/rand
-	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	result := make([]byte, length)
-	for i := range result {
-		result[i] = charset[i%len(charset)]
+	// 生成随机UUID
+	uuid := make([]byte, 16)
+	_, err := rand.Read(uuid)
+	if err != nil {
+		// 如果随机数生成失败，使用时间戳作为备选方案
+		timestamp := time.Now().UnixNano()
+		return fmt.Sprintf("sess_%x", timestamp)
 	}
-	return string(result)
+
+	// 设置UUID版本和变体标志位
+	uuid[6] = (uuid[6] & 0x0f) | 0x40 // 版本4
+	uuid[8] = (uuid[8] & 0x3f) | 0x80 // 变体RFC4122
+
+	// 将当前时间戳融合到ID中，增加唯一性和安全性
+	timestamp := time.Now().UnixNano()
+
+	// 格式: sess_[时间戳前8位]_[UUID]
+	return fmt.Sprintf("sess_%x_%s", timestamp%100000000, hex.EncodeToString(uuid))
 }

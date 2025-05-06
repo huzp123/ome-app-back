@@ -19,10 +19,20 @@ import (
 )
 
 func main() {
+	// 设置日志格式
+	log.SetFlags(log.Ldate | log.Ltime | log.Lmicroseconds | log.LUTC | log.Lshortfile)
+	log.Println("启动服务...")
+
 	// 加载配置
 	cfg, err := config.LoadConfig("config/config.yaml")
 	if err != nil {
 		log.Fatalf("加载配置失败: %v", err)
+	}
+
+	// 检查配置有效性
+	issues := cfg.CheckConfiguration()
+	if len(issues) > 0 {
+		log.Println("配置存在问题，请检查日志")
 	}
 
 	// 设置Gin模式
@@ -37,7 +47,7 @@ func main() {
 	// 自动迁移数据库表结构
 	autoMigrate(db)
 
-	// 初始化DAO
+	// 初始化服务组件
 	appUserDAO := dao.NewAppUserDAO(db)
 	userWeightDAO := dao.NewUserWeightDAO(db)
 	userGoalDAO := dao.NewUserGoalDAO(db)
@@ -46,19 +56,21 @@ func main() {
 	chatDAO := dao.NewChatDAO(db)
 	foodRecognitionDAO := dao.NewFoodRecognitionDAO(db)
 
-	// 初始化Service
 	userService := service.NewUserService(appUserDAO, userWeightDAO, userGoalDAO)
 	healthAnalysisService := service.NewHealthAnalysisService(appUserDAO, userWeightDAO, userGoalDAO, healthAnalysisDAO)
-	nutritionService := service.NewNutritionService(dailyNutritionDAO)
+	nutritionService := service.NewNutritionService(dailyNutritionDAO, healthAnalysisDAO)
 	fileService := service.NewFileService(&cfg.Upload)
 	aiService := service.NewAIService(&cfg.AI)
 	chatService := service.NewChatService(chatDAO, aiService)
 	foodRecognitionService := service.NewFoodRecognitionService(
 		foodRecognitionDAO,
 		dailyNutritionDAO,
+		healthAnalysisDAO,
 		fileService,
 		aiService,
 	)
+
+	// testAIConnection(aiService)
 
 	// 初始化API
 	userAPI := v1.NewUserAPI(userService)
@@ -73,7 +85,7 @@ func main() {
 
 	// 启动服务器
 	serverAddr := fmt.Sprintf(":%d", cfg.Server.Port)
-	fmt.Printf("服务器启动在 %s\n", serverAddr)
+	log.Printf("服务器启动在 %s", serverAddr)
 	if err := r.Run(serverAddr); err != nil {
 		log.Fatalf("服务器启动失败: %v", err)
 	}
@@ -126,5 +138,28 @@ func autoMigrate(db *gorm.DB) {
 	if err != nil {
 		log.Fatalf("数据库自动迁移失败: %v", err)
 	}
-	log.Println("数据库表结构已自动迁移")
 }
+
+// func testAIConnection(aiService *service.AIService) {
+// 	// 简单的测试消息
+// 	messages := []model.OpenAIMessage{
+// 		{
+// 			Role:    "system",
+// 			Content: "你是一个健康助手，请简短地回答问题。",
+// 		},
+// 		{
+// 			Role:    "user",
+// 			Content: "你好，能听到我说话吗？请用一句话回复。",
+// 		},
+// 	}
+
+// 	// 尝试与AI服务通信
+// 	log.Println("测试AI服务连接...")
+// 	_, err := aiService.ChatWithAI(messages)
+
+// 	if err != nil {
+// 		log.Printf("AI服务连接测试失败，请检查网络和API配置")
+// 	} else {
+// 		log.Printf("AI服务连接测试成功")
+// 	}
+// }

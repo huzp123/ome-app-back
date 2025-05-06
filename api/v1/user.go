@@ -122,6 +122,29 @@ func (api *UserAPI) UpdateGoal(c *gin.Context) {
 	})
 }
 
+// GetGoal 获取用户健康目标
+func (api *UserAPI) GetGoal(c *gin.Context) {
+	// 从JWT中获取用户ID
+	userID := getUserIDFromContext(c)
+	if userID == 0 {
+		errcode.UnauthorizedTokenError.Response(c)
+		return
+	}
+
+	// 调用服务层获取用户目标
+	goal, err := api.userService.GetGoal(userID)
+	if err != nil {
+		errcode.ServerError.WithDetails(err.Error()).Response(c)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"msg":  "成功",
+		"data": goal,
+	})
+}
+
 // 从上下文中获取用户ID的辅助函数
 func getUserIDFromContext(c *gin.Context) int64 {
 	// 实际项目中，这个值应该由认证中间件设置
