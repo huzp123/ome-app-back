@@ -3,6 +3,7 @@ package v1
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -93,6 +94,66 @@ func (a *FoodRecognitionAPI) GetTodayRecognitions(c *gin.Context) {
 	results, err := a.recognitionService.GetUserTodayRecognitions(userID)
 	if err != nil {
 		responseError(c, http.StatusInternalServerError, "获取识别记录失败")
+		return
+	}
+
+	responseSuccess(c, results)
+}
+
+// SaveRecognitionToNutrition 保存食物识别结果到用户营养摄入
+func (a *FoodRecognitionAPI) SaveRecognitionToNutrition(c *gin.Context) {
+	userID := getUserID(c)
+	if userID == 0 {
+		responseError(c, http.StatusUnauthorized, "未授权")
+		return
+	}
+
+	// 获取识别记录ID
+	idStr := c.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		responseError(c, http.StatusBadRequest, "无效的ID参数")
+		return
+	}
+
+	// 保存到营养摄入
+	err = a.recognitionService.SaveRecognitionToNutrition(id, userID)
+	if err != nil {
+		responseError(c, http.StatusInternalServerError, "保存到营养摄入失败: "+err.Error())
+		return
+	}
+
+	responseSuccess(c, nil)
+}
+
+// GetAdoptedRecognitions 获取用户已采用的食物识别记录
+func (a *FoodRecognitionAPI) GetAdoptedRecognitions(c *gin.Context) {
+	userID := getUserID(c)
+	if userID == 0 {
+		responseError(c, http.StatusUnauthorized, "未授权")
+		return
+	}
+
+	// 获取查询参数
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+
+	// 限制分页参数
+	if page < 1 {
+		page = 1
+	}
+	if pageSize < 1 || pageSize > 100 {
+		pageSize = 20
+	}
+
+	// 获取日期范围参数
+	startDate := c.DefaultQuery("start_date", time.Now().AddDate(0, 0, -30).Format("2006-01-02"))
+	endDate := c.DefaultQuery("end_date", time.Now().Format("2006-01-02"))
+
+	// 调用服务获取记录
+	results, err := a.recognitionService.GetAdoptedRecognitions(userID, page, pageSize, startDate, endDate)
+	if err != nil {
+		responseError(c, http.StatusInternalServerError, "获取识别记录失败: "+err.Error())
 		return
 	}
 

@@ -3,6 +3,7 @@ package service
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"mime/multipart"
 	"time"
@@ -20,7 +21,6 @@ type FoodRecognitionService struct {
 	aiService         *AIService
 }
 
-// NewFoodRecognitionService 创建食物识别服务实例
 func NewFoodRecognitionService(
 	recognitionDAO *dao.FoodRecognitionDAO,
 	nutritionDAO *dao.DailyNutritionDAO,
@@ -42,6 +42,13 @@ type AIAnalysisResult struct {
 	Foods     []model.RecognizedFoodItem     `json:"foods"`
 	Nutrition model.FoodRecognitionNutrition `json:"nutrition"`
 	Analysis  string                         `json:"analysis"`
+}
+
+// FoodRecognitionHistoryResult 食物识别历史结果
+type FoodRecognitionHistoryResult struct {
+	Total      int64                                    `json:"total"`       // 总记录数
+	Records    []model.FoodRecognitionResult            `json:"records"`     // 记录列表
+	DateGroups map[string][]model.FoodRecognitionResult `json:"date_groups"` // 按日期分组的记录
 }
 
 // RecognizeFood 处理食物识别
@@ -102,20 +109,56 @@ func (s *FoodRecognitionService) RecognizeFood(userID int64, sessionID string, f
 		return nil, err
 	}
 
-	// 更新用户当日营养摄入
-	log.Printf("[食物识别] 更新用户营养摄入数据...")
-	if err := s.updateDailyNutrition(userID, analysisResult.Nutrition); err != nil {
-		// 记录错误但不中断流程
-		log.Printf("[食物识别] 警告: 更新营养数据失败，但不影响识别结果: %v", err)
-	} else {
-		log.Printf("[食物识别] 营养数据更新成功")
-	}
-
 	// 计算总处理时间
 	duration := time.Since(startTime)
 	log.Printf("[食物识别] 处理完成, 总耗时: %.2f秒", duration.Seconds())
 
 	return result, nil
+}
+
+// SaveRecognitionToNutrition 将食物识别结果保存到用户当日营养摄入
+func (s *FoodRecognitionService) SaveRecognitionToNutrition(recognitionID int64, userID int64) error {
+	log.Printf("[食物识别-保存] 开始将识别结果(ID:%d)保存到用户(ID:%d)的营养摄入", recognitionID, userID)
+
+	// 获取识别记录
+	recognition, err := s.recognitionDAO.GetRecognitionByID(recognitionID)
+	if err != nil {
+		log.Printf("[食物识别-保存] 错误: 获取识别记录失败: %v", err)
+		return err
+	}
+
+	// 验证识别记录属于当前用户
+	if recognition.UserID != userID {
+		log.Printf("[食物识别-保存] 错误: 用户(ID:%d)尝试保存不属于自己的识别记录(ID:%d)", userID, recognitionID)
+		return errors.New("无权操作此识别记录")
+	}
+
+	// 直接从识别记录中获取营养数据
+	nutrition := model.FoodRecognitionNutrition{
+		CaloriesIntake: recognition.CaloriesIntake,
+		ProteinIntakeG: recognition.ProteinIntakeG,
+		CarbIntakeG:    recognition.CarbIntakeG,
+		FatIntakeG:     recognition.FatIntakeG,
+	}
+
+	// 更新用户当日营养摄入
+	log.Printf("[食物识别-保存] 更新用户营养摄入数据...")
+	if err := s.updateDailyNutrition(userID, nutrition); err != nil {
+		log.Printf("[食物识别-保存] 错误: 更新营养数据失败: %v", err)
+		return err
+	}
+
+	// 更新识别记录的采用状态
+	log.Printf("[食物识别-保存] 更新识别记录采用状态...")
+	if err := s.recognitionDAO.UpdateAdoptionStatus(recognitionID, true); err != nil {
+		log.Printf("[食物识别-保存] 错误: 更新采用状态失败: %v", err)
+		// 虽然状态更新失败，但营养数据已成功更新，所以仍然返回成功
+		log.Printf("[食物识别-保存] 注意: 营养数据已成功更新，但状态更新失败")
+		return nil
+	}
+
+	log.Printf("[食物识别-保存] 营养数据更新成功，记录状态已标记为已采用")
+	return nil
 }
 
 // GetRecognitionByID 获取识别记录详情
@@ -198,4 +241,75 @@ func truncateString(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen] + "...(已截断)"
+}
+
+// GetAdoptedRecognitions 获取用户已采用的食物识别记录
+func (s *FoodRecognitionService) GetAdoptedRecognitions(userID int64, page, pageSize int, startDate, endDate string) (*FoodRecognitionHistoryResult, error) {
+	log.Printf("[食物识别-历史] 查询用户(ID:%d)已采用的食物识别记录, 日期范围: %s - %s", userID, startDate, endDate)
+
+	// 解析日期
+	start, err := time.Parse("2006-01-02", startDate)
+	if err != nil {
+		log.Printf("[食物识别-历史] 错误: 开始日期格式无效: %v", err)
+		return nil, fmt.Errorf("开始日期格式无效: %v", err)
+	}
+
+	end, err := time.Parse("2006-01-02", endDate)
+	if err != nil {
+		log.Printf("[食物识别-历史] 错误: 结束日期格式无效: %v", err)
+		return nil, fmt.Errorf("结束日期格式无效: %v", err)
+	}
+
+	// 将结束日期设置为当天的23:59:59
+	end = time.Date(end.Year(), end.Month(), end.Day(), 23, 59, 59, 999999999, end.Location())
+
+	// 获取分页记录
+	records, total, err := s.recognitionDAO.GetUserAdoptedRecognitions(userID, page, pageSize, start, end)
+	if err != nil {
+		log.Printf("[食物识别-历史] 错误: 查询记录失败: %v", err)
+		return nil, err
+	}
+
+	// 转换为前端结果对象
+	recordResults := make([]model.FoodRecognitionResult, 0, len(records))
+	for _, record := range records {
+		result, err := s.recognitionDAO.ConvertToResult(&record)
+		if err != nil {
+			log.Printf("[食物识别-历史] 警告: 转换记录失败(ID:%d): %v", record.ID, err)
+			continue
+		}
+		recordResults = append(recordResults, *result)
+	}
+
+	// 获取按日期分组的记录
+	dateGroupRecords, err := s.recognitionDAO.GetUserAdoptedRecognitionsByDateRange(userID, start, end)
+	if err != nil {
+		log.Printf("[食物识别-历史] 错误: 查询日期分组记录失败: %v", err)
+		return nil, err
+	}
+
+	// 转换为前端结果对象
+	dateGroups := make(map[string][]model.FoodRecognitionResult)
+	for date, groupRecords := range dateGroupRecords {
+		results := make([]model.FoodRecognitionResult, 0, len(groupRecords))
+		for _, record := range groupRecords {
+			result, err := s.recognitionDAO.ConvertToResult(&record)
+			if err != nil {
+				log.Printf("[食物识别-历史] 警告: 转换日期组记录失败(ID:%d): %v", record.ID, err)
+				continue
+			}
+			results = append(results, *result)
+		}
+		dateGroups[date] = results
+	}
+
+	// 构建结果
+	historyResult := &FoodRecognitionHistoryResult{
+		Total:      total,
+		Records:    recordResults,
+		DateGroups: dateGroups,
+	}
+
+	log.Printf("[食物识别-历史] 查询成功, 共%d条记录, %d个日期组", total, len(dateGroups))
+	return historyResult, nil
 }

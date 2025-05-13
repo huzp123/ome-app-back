@@ -91,6 +91,13 @@ func (d *FoodRecognitionDAO) GetUserRecentRecognitions(userID int64, limit int) 
 	return recognitions, nil
 }
 
+// UpdateAdoptionStatus 更新识别记录的采用状态
+func (d *FoodRecognitionDAO) UpdateAdoptionStatus(id int64, isAdopted bool) error {
+	return d.db.Model(&model.FoodRecognition{}).
+		Where("id = ?", id).
+		Update("is_adopted", isAdopted).Error
+}
+
 // ConvertToResult 将数据库记录转换为前端可用的结果对象
 func (d *FoodRecognitionDAO) ConvertToResult(recognition *model.FoodRecognition) (*model.FoodRecognitionResult, error) {
 	var foods []model.RecognizedFoodItem
@@ -99,6 +106,7 @@ func (d *FoodRecognitionDAO) ConvertToResult(recognition *model.FoodRecognition)
 	}
 
 	result := &model.FoodRecognitionResult{
+		ID:              recognition.ID,
 		ImageURL:        recognition.ImageURL,
 		RecognizedFoods: foods,
 		NutritionSummary: model.FoodRecognitionNutrition{
@@ -108,6 +116,8 @@ func (d *FoodRecognitionDAO) ConvertToResult(recognition *model.FoodRecognition)
 			FatIntakeG:     recognition.FatIntakeG,
 		},
 		AIAnalysis: recognition.AIResponse,
+		IsAdopted:  recognition.IsAdopted,
+		RecordDate: recognition.RecordDate.Format("2006-01-02"),
 	}
 
 	return result, nil
@@ -129,4 +139,59 @@ func (d *FoodRecognitionDAO) SummarizeTodayNutrition(userID int64) (model.FoodRe
 	}
 
 	return summary, nil
+}
+
+// GetUserAdoptedRecognitions 获取用户已采用的食物识别记录
+func (d *FoodRecognitionDAO) GetUserAdoptedRecognitions(userID int64, page, pageSize int, startDate, endDate time.Time) ([]model.FoodRecognition, int64, error) {
+	var recognitions []model.FoodRecognition
+	var total int64
+
+	// 设置分页参数
+	offset := (page - 1) * pageSize
+
+	// 查询总数
+	query := d.db.Model(&model.FoodRecognition{}).
+		Where("user_id = ? AND is_adopted = ? AND record_date >= ? AND record_date <= ?",
+			userID, true, startDate, endDate)
+
+	err := query.Count(&total).Error
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// 查询数据
+	err = query.Order("record_date DESC, created_at DESC").
+		Offset(offset).
+		Limit(pageSize).
+		Find(&recognitions).Error
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return recognitions, total, nil
+}
+
+// GetUserAdoptedRecognitionsByDateRange 获取用户已采用的食物识别记录并按日期分组
+func (d *FoodRecognitionDAO) GetUserAdoptedRecognitionsByDateRange(userID int64, startDate, endDate time.Time) (map[string][]model.FoodRecognition, error) {
+	var recognitions []model.FoodRecognition
+
+	// 查询数据
+	err := d.db.Where("user_id = ? AND is_adopted = ? AND record_date >= ? AND record_date <= ?",
+		userID, true, startDate, endDate).
+		Order("record_date DESC, created_at DESC").
+		Find(&recognitions).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	// 按日期分组
+	result := make(map[string][]model.FoodRecognition)
+	for _, recognition := range recognitions {
+		dateKey := recognition.RecordDate.Format("2006-01-02")
+		result[dateKey] = append(result[dateKey], recognition)
+	}
+
+	return result, nil
 }

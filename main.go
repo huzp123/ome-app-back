@@ -78,10 +78,11 @@ func main() {
 	nutritionAPI := v1.NewNutritionAPI(nutritionService)
 	chatAPI := v1.NewChatAPI(chatService)
 	foodRecognitionAPI := v1.NewFoodRecognitionAPI(foodRecognitionService)
+	fileAPI := v1.NewFileAPI(fileService)
 
 	// 设置路由
 	r := gin.Default()
-	api.SetupRouter(r, userAPI, healthAnalysisAPI, nutritionAPI, chatAPI, foodRecognitionAPI)
+	api.SetupRouter(r, userAPI, healthAnalysisAPI, nutritionAPI, chatAPI, foodRecognitionAPI, fileAPI)
 
 	// 启动服务器
 	serverAddr := fmt.Sprintf(":%d", cfg.Server.Port)

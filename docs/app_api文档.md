@@ -638,6 +638,7 @@ GET /api/v1/food/recognition/{id}
   "code": 0,
   "msg": "成功",
   "data": {
+    "id": 123,
     "image_url": "uploads/user_1/1683806400_abcdef.jpg",
     "recognized_foods": [
       {
@@ -662,7 +663,9 @@ GET /api/v1/food/recognition/{id}
       "carb_intake_g": 42.8,
       "fat_intake_g": 7.2
     },
-    "ai_analysis": "这是一顿均衡的健康餐，蛋白质来源充足，含有复合碳水和蔬菜，总热量适中。"
+    "ai_analysis": "这是一顿均衡的健康餐，蛋白质来源充足，含有复合碳水和蔬菜，总热量适中。",
+    "is_adopted": false,
+    "record_date": "2023-05-01"
   }
 }
 ```
@@ -681,6 +684,7 @@ GET /api/v1/food/recognition/today
   "msg": "成功",
   "data": [
     {
+      "id": 123,
       "image_url": "uploads/user_1/1683806400_abcdef.jpg",
       "recognized_foods": [
         {
@@ -705,9 +709,154 @@ GET /api/v1/food/recognition/today
         "carb_intake_g": 42.8,
         "fat_intake_g": 7.2
       },
-      "ai_analysis": "这是一顿均衡的健康餐，蛋白质来源充足，含有复合碳水和蔬菜，总热量适中。"
+      "ai_analysis": "这是一顿均衡的健康餐，蛋白质来源充足，含有复合碳水和蔬菜，总热量适中。",
+      "is_adopted": true,
+      "record_date": "2023-05-01"
     },
     // ... 其他今日记录
   ]
 }
-``` 
+```
+
+### 保存食物识别结果到营养摄入
+
+**请求**
+```
+POST /api/v1/food/recognition/{id}/save
+```
+
+**说明**
+- 使用该接口将食物识别的营养数据保存到用户当日的营养摄入记录中
+- 用户需要先查看识别结果后决定是否保存，而不是自动保存
+- 保存后识别记录的`is_adopted`字段会被更新为`true`，表示该记录已被采用
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": null
+}
+```
+
+### 获取用户已采用的食物识别记录
+
+**请求**
+```
+GET /api/v1/food/recognition/adopted?page=1&page_size=20&start_date=2023-01-01&end_date=2023-01-31
+```
+
+**查询参数**
+- `page`: 可选，页码，默认为1
+- `page_size`: 可选，每页记录数，默认为20，最大100
+- `start_date`: 可选，开始日期，格式YYYY-MM-DD，默认为30天前
+- `end_date`: 可选，结束日期，格式YYYY-MM-DD，默认为当天
+
+**说明**
+- 使用该接口获取用户已保存到营养摄入的食物识别记录
+- 返回结果包含按日期分组的记录，便于前端展示历史饮食记录
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": {
+    "total": 15,
+    "records": [
+      {
+        "id": 123,
+        "image_url": "uploads/user_1/1683806400_abcdef.jpg",
+        "recognized_foods": [
+          {
+            "name": "烤鸡胸肉",
+            "quantity": "约100克",
+            "calories": 165
+          },
+          {
+            "name": "糙米饭",
+            "quantity": "约150克",
+            "calories": 180
+          }
+        ],
+        "nutrition_summary": {
+          "calories_intake": 345,
+          "protein_intake_g": 30.5,
+          "carb_intake_g": 40.8,
+          "fat_intake_g": 6.2
+        },
+        "ai_analysis": "这是一顿均衡的健康餐，蛋白质来源充足，含有复合碳水，总热量适中。",
+        "is_adopted": true,
+        "record_date": "2023-05-01"
+      },
+      // ... 其他记录
+    ],
+    "date_groups": {
+      "2023-05-01": [
+        {
+          "id": 123,
+          "image_url": "uploads/user_1/1683806400_abcdef.jpg",
+          "recognized_foods": [
+            {
+              "name": "烤鸡胸肉",
+              "quantity": "约100克",
+              "calories": 165
+            },
+            {
+              "name": "糙米饭",
+              "quantity": "约150克",
+              "calories": 180
+            }
+          ],
+          "nutrition_summary": {
+            "calories_intake": 345,
+            "protein_intake_g": 30.5,
+            "carb_intake_g": 40.8,
+            "fat_intake_g": 6.2
+          },
+          "ai_analysis": "这是一顿均衡的健康餐，蛋白质来源充足，含有复合碳水，总热量适中。",
+          "is_adopted": true,
+          "record_date": "2023-05-01"
+        },
+        // ... 同一天的其他记录
+      ],
+      "2023-04-30": [
+        // ... 另一天的记录
+      ]
+      // ... 其他日期分组
+    }
+  }
+}
+```
+
+## 文件访问相关接口
+
+### 获取文件（公共）
+
+**请求**
+```
+GET /api/v1/files/{filepath}
+```
+
+**说明**
+- 使用此接口获取系统中可公开访问的文件
+- 接口会返回文件内容而非JSON响应
+- 仅允许访问uploads目录下的文件，出于安全考虑有路径限制
+
+**响应**
+文件内容（非JSON格式），同时设置适当的Content-Type头部
+
+### 获取用户文件（需要认证）
+
+**请求**
+```
+GET /api/v1/user/files/{filepath}
+```
+
+**说明**
+- 使用此接口获取当前认证用户有权限访问的文件
+- 接口会返回文件内容而非JSON响应
+- 仅允许用户访问自己uploads/user_{user_id}目录下的文件
+
+**响应**
+文件内容（非JSON格式），同时设置适当的Content-Type头部 

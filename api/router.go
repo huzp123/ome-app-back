@@ -9,7 +9,8 @@ import (
 
 // SetupRouter 设置API路由
 func SetupRouter(engine *gin.Engine, userAPI *v1.UserAPI, healthAnalysisAPI *v1.HealthAnalysisAPI,
-	nutritionAPI *v1.NutritionAPI, chatAPI *v1.ChatAPI, foodRecognitionAPI *v1.FoodRecognitionAPI) {
+	nutritionAPI *v1.NutritionAPI, chatAPI *v1.ChatAPI, foodRecognitionAPI *v1.FoodRecognitionAPI,
+	fileAPI *v1.FileAPI) {
 	// 全局中间件
 	engine.Use(gin.Logger())
 	engine.Use(gin.Recovery())
@@ -32,6 +33,9 @@ func SetupRouter(engine *gin.Engine, userAPI *v1.UserAPI, healthAnalysisAPI *v1.
 		// 用户注册登录
 		apiV1.POST("/register", userAPI.Register)
 		apiV1.POST("/login", userAPI.Login)
+
+		// 文件访问（无需权限验证的公共文件）
+		apiV1.GET("/files/*filepath", fileAPI.GetFile)
 	}
 
 	// 需要认证的接口
@@ -42,6 +46,9 @@ func SetupRouter(engine *gin.Engine, userAPI *v1.UserAPI, healthAnalysisAPI *v1.
 		auth.PUT("/user/profile", userAPI.UpdateProfile)
 		auth.PUT("/user/goal", userAPI.UpdateGoal)
 		auth.GET("/user/goal", userAPI.GetGoal)
+
+		// 文件访问（需要验证权限的用户文件）
+		auth.GET("/user/files/*filepath", fileAPI.GetUserFile)
 
 		// 健康分析
 		auth.GET("/health/analysis", healthAnalysisAPI.GenerateAnalysis)
@@ -65,5 +72,7 @@ func SetupRouter(engine *gin.Engine, userAPI *v1.UserAPI, healthAnalysisAPI *v1.
 		auth.POST("/food/recognize", foodRecognitionAPI.RecognizeFood)
 		auth.GET("/food/recognition/:id", foodRecognitionAPI.GetRecognitionByID)
 		auth.GET("/food/recognition/today", foodRecognitionAPI.GetTodayRecognitions)
+		auth.POST("/food/recognition/:id/save", foodRecognitionAPI.SaveRecognitionToNutrition)
+		auth.GET("/food/recognition/adopted", foodRecognitionAPI.GetAdoptedRecognitions)
 	}
 }

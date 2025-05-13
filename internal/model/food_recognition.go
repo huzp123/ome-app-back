@@ -16,6 +16,7 @@ type FoodRecognition struct {
 	CarbIntakeG     float64   `json:"carb_intake_g" gorm:"type:numeric(6,2);default:0"`         // 估算碳水(克)
 	FatIntakeG      float64   `json:"fat_intake_g" gorm:"type:numeric(6,2);default:0"`          // 估算脂肪(克)
 	AIResponse      string    `json:"ai_response" gorm:"type:text"`                             // AI返回的完整响应
+	IsAdopted       bool      `json:"is_adopted" gorm:"default:false"`                          // 用户是否采用此记录到营养摄入
 	RecordDate      time.Time `json:"record_date" gorm:"type:date;not null"`                    // 记录日期
 	CreatedAt       time.Time `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt       time.Time `json:"updated_at" gorm:"autoUpdateTime"`
@@ -28,10 +29,13 @@ func (FoodRecognition) TableName() string {
 
 // FoodRecognitionResult 食物识别结果(用于前端显示)
 type FoodRecognitionResult struct {
+	ID               int64                    `json:"id"`                // 识别记录ID
 	ImageURL         string                   `json:"image_url"`         // 图片URL
 	RecognizedFoods  []RecognizedFoodItem     `json:"recognized_foods"`  // 识别出的食物列表
 	NutritionSummary FoodRecognitionNutrition `json:"nutrition_summary"` // 营养摘要
 	AIAnalysis       string                   `json:"ai_analysis"`       // AI分析结果
+	IsAdopted        bool                     `json:"is_adopted"`        // 是否已保存到营养摄入
+	RecordDate       string                   `json:"record_date"`       // 记录日期
 }
 
 // RecognizedFoodItem 识别出的食物项
