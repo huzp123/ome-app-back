@@ -13,6 +13,8 @@ func InitModels(db *gorm.DB) error {
 		&UserGoal{},
 		&HealthAnalysis{},
 		&DailyNutrition{},
+		&UserExercise{},
+		&MoodRecord{},
 	)
 	if err != nil {
 		return err

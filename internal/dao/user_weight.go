@@ -1,6 +1,7 @@
 package dao
 
 import (
+	"errors"
 	"time"
 
 	"gorm.io/gorm"
@@ -32,7 +33,7 @@ func (d *UserWeightDAO) Create(userID int64, weightKG float64) error {
 func (d *UserWeightDAO) GetLatest(userID int64) (*model.UserWeight, error) {
 	var weight model.UserWeight
 	err := d.db.Where("user_id = ?", userID).
-		Order("record_date DESC").
+		Order("id DESC").
 		First(&weight).Error
 	if err != nil {
 		return nil, err
@@ -51,4 +52,16 @@ func (d *UserWeightDAO) GetHistory(userID int64, startDate, endDate time.Time) (
 		return nil, err
 	}
 	return weights, nil
+}
+
+// Delete 删除用户体重记录
+func (d *UserWeightDAO) Delete(userID, recordID int64) error {
+	result := d.db.Where("id = ? AND user_id = ?", recordID, userID).Delete(&model.UserWeight{})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return errors.New("记录不存在或无权限删除")
+	}
+	return nil
 }

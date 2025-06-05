@@ -55,6 +55,8 @@ func main() {
 	dailyNutritionDAO := dao.NewDailyNutritionDAO(db)
 	chatDAO := dao.NewChatDAO(db)
 	foodRecognitionDAO := dao.NewFoodRecognitionDAO(db)
+	userExerciseDAO := dao.NewUserExerciseDAO(db)
+	moodRecordDAO := dao.NewMoodRecordDAO(db)
 
 	userService := service.NewUserService(appUserDAO, userWeightDAO, userGoalDAO)
 	healthAnalysisService := service.NewHealthAnalysisService(appUserDAO, userWeightDAO, userGoalDAO, healthAnalysisDAO)
@@ -69,6 +71,8 @@ func main() {
 		fileService,
 		aiService,
 	)
+	exerciseService := service.NewExerciseService(userExerciseDAO)
+	moodService := service.NewMoodService(moodRecordDAO)
 
 	// testAIConnection(aiService)
 
@@ -79,10 +83,12 @@ func main() {
 	chatAPI := v1.NewChatAPI(chatService)
 	foodRecognitionAPI := v1.NewFoodRecognitionAPI(foodRecognitionService)
 	fileAPI := v1.NewFileAPI(fileService)
+	exerciseAPI := v1.NewExerciseAPI(exerciseService)
+	moodAPI := v1.NewMoodAPI(moodService)
 
 	// 设置路由
 	r := gin.Default()
-	api.SetupRouter(r, userAPI, healthAnalysisAPI, nutritionAPI, chatAPI, foodRecognitionAPI, fileAPI)
+	api.SetupRouter(r, userAPI, healthAnalysisAPI, nutritionAPI, chatAPI, foodRecognitionAPI, fileAPI, exerciseAPI, moodAPI)
 
 	// 启动服务器
 	serverAddr := fmt.Sprintf(":%d", cfg.Server.Port)
@@ -135,6 +141,8 @@ func autoMigrate(db *gorm.DB) {
 		&model.ChatSession{},
 		&model.ChatMessage{},
 		&model.FoodRecognition{},
+		&model.UserExercise{},
+		&model.MoodRecord{},
 	)
 	if err != nil {
 		log.Fatalf("数据库自动迁移失败: %v", err)

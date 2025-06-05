@@ -263,17 +263,25 @@ func (s *UserService) UpdateProfile(req UpdateProfileRequest) error {
 // UpdateGoalRequest 更新健康目标请求
 type UpdateGoalRequest struct {
 	UserID           int64    `json:"user_id"`
-	GoalType         string   `json:"goal_type"` // lose_fat/keep_fit/gain_muscle
-	TargetWeightKG   float64  `json:"target_weight_kg"`
+	GoalType         string   `json:"goal_type" binding:"required"` // lose_fat/keep_fit/gain_muscle
+	TargetWeightKG   float64  `json:"target_weight_kg" binding:"required,gt=0"`
 	WeeklyChangeKG   float64  `json:"weekly_change_kg"`
-	TargetDate       string   `json:"target_date"` // 格式 YYYY-MM-DD
-	DietType         string   `json:"diet_type"`   // normal/vegetarian/low_carb等
-	TastePreferences []string `json:"taste_preferences"`
-	FoodIntolerances []string `json:"food_intolerances"`
+	TargetDate       string   `json:"target_date" binding:"required"` // 格式 YYYY-MM-DD
+	DietType         string   `json:"diet_type" binding:"required"`   // normal/vegetarian/low_carb等
+	TastePreferences []string `json:"taste_preferences" binding:"required,min=1,dive,required"`
+	FoodIntolerances []string `json:"food_intolerances" binding:"required,min=1,dive,required"`
 }
 
 // UpdateGoal 更新用户健康目标
 func (s *UserService) UpdateGoal(req UpdateGoalRequest) error {
+	// 验证必填字段
+	if len(req.TastePreferences) == 0 {
+		return errors.New("口味偏好不能为空")
+	}
+	if len(req.FoodIntolerances) == 0 {
+		return errors.New("食物不耐受不能为空")
+	}
+
 	// 解析日期
 	targetDate, err := time.Parse("2006-01-02", req.TargetDate)
 	if err != nil {
@@ -299,7 +307,7 @@ func (s *UserService) UpdateGoal(req UpdateGoalRequest) error {
 	return nil
 }
 
-// GetUserGoalResponse 获取用户健康目标的响应
+// GetUserGoalResponse 获取用户健康目标响应
 type GetUserGoalResponse struct {
 	ID               int64     `json:"id"`
 	GoalType         string    `json:"goal_type"` // lose_fat/keep_fit/gain_muscle
@@ -312,11 +320,29 @@ type GetUserGoalResponse struct {
 	CreatedAt        time.Time `json:"created_at"`
 }
 
-// GetGoal 获取用户的健康目标
+// GetUserInfoResponse 获取用户信息响应
+type GetUserInfoResponse struct {
+	ID                int64     `json:"id"`
+	UserName          string    `json:"user_name"`
+	Phone             string    `json:"phone,omitempty"`
+	Email             string    `json:"email,omitempty"`
+	HeightCM          float64   `json:"height_cm,omitempty"`
+	BirthDate         string    `json:"birth_date,omitempty"`
+	Sex               string    `json:"sex,omitempty"`
+	CreatedAt         time.Time `json:"created_at"`
+	UpdatedAt         time.Time `json:"updated_at"`
+	IsProfileComplete bool      `json:"is_profile_complete"`
+}
+
+// GetGoal 获取用户健康目标
 func (s *UserService) GetGoal(userID int64) (*GetUserGoalResponse, error) {
 	// 从数据库获取用户目标
 	goal, err := s.userGoalDAO.GetByUserID(userID)
 	if err != nil {
+		// 如果是用户目标不存在，返回nil而不是错误
+		if err.Error() == "未找到用户目标" {
+			return nil, nil
+		}
 		return nil, err
 	}
 
@@ -332,4 +358,47 @@ func (s *UserService) GetGoal(userID int64) (*GetUserGoalResponse, error) {
 		FoodIntolerances: goal.FoodIntolerances,
 		CreatedAt:        goal.CreatedAt,
 	}, nil
+}
+
+// GetUserInfo 获取用户信息
+func (s *UserService) GetUserInfo(userID int64) (*GetUserInfoResponse, error) {
+	// 获取用户信息
+	user, err := s.userDAO.GetByID(userID)
+	if err != nil {
+		return nil, errors.New("获取用户信息失败")
+	}
+
+	// 构建响应数据
+	response := &GetUserInfoResponse{
+		ID:        user.ID,
+		UserName:  user.UserName,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+	}
+
+	// 处理可选字段
+	if user.Phone.Valid {
+		response.Phone = user.Phone.String
+	}
+
+	if user.Email.Valid {
+		response.Email = user.Email.String
+	}
+
+	if user.HeightCM.Valid {
+		response.HeightCM = user.HeightCM.Float64
+	}
+
+	if !user.BirthDate.IsZero() {
+		response.BirthDate = user.BirthDate.Format("2006-01-02")
+	}
+
+	if user.Sex != "" {
+		response.Sex = user.Sex
+	}
+
+	// 检查用户档案是否完善
+	response.IsProfileComplete = user.HeightCM.Valid && !user.BirthDate.IsZero() && user.Sex != ""
+
+	return response, nil
 }

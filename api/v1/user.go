@@ -138,10 +138,49 @@ func (api *UserAPI) GetGoal(c *gin.Context) {
 		return
 	}
 
+	// 如果goal为nil，表示用户还没有设置健康目标
+	var data interface{}
+	if goal == nil {
+		data = nil
+	} else {
+		data = goal
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"code": 0,
 		"msg":  "成功",
-		"data": goal,
+		"data": data,
+	})
+}
+
+// GetUserInfo 获取用户信息
+func (api *UserAPI) GetUserInfo(c *gin.Context) {
+	// 从JWT中获取用户ID
+	userID := getUserIDFromContext(c)
+	if userID == 0 {
+		fmt.Printf("[获取用户信息] 认证失败, IP: %s\n", c.ClientIP())
+		errcode.UnauthorizedTokenError.Response(c)
+		return
+	}
+
+	// 记录请求开始
+	fmt.Printf("[获取用户信息] 开始处理请求, 用户ID: %d, IP: %s\n", userID, c.ClientIP())
+
+	// 调用服务层获取用户信息
+	userInfo, err := api.userService.GetUserInfo(userID)
+	if err != nil {
+		fmt.Printf("[获取用户信息] 失败, 用户ID: %d, 错误: %s\n", userID, err.Error())
+		errcode.ServerError.WithDetails(err.Error()).Response(c)
+		return
+	}
+
+	// 记录成功，打印出参
+	fmt.Printf("[获取用户信息] 成功, 用户ID: %d, 出参: %+v\n", userID, userInfo)
+
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"msg":  "成功",
+		"data": userInfo,
 	})
 }
 

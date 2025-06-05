@@ -111,6 +111,33 @@ POST /login
 
 ## 用户相关接口（需要认证）
 
+### 获取用户信息
+
+**请求**
+```
+GET /user/info
+```
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": {
+    "id": 1,
+    "user_name": "张三",
+    "phone": "13800138000",
+    "email": "zhangsan@example.com",
+    "height_cm": 175.0,
+    "birth_date": "1990-01-01",
+    "sex": "male",
+    "created_at": "2023-04-01T12:00:00Z",
+    "updated_at": "2023-04-15T10:30:00Z",
+    "is_profile_complete": true
+  }
+}
+```
+
 ### 更新用户档案
 
 **请求**
@@ -154,13 +181,13 @@ PUT /user/goal
 **请求参数**
 ```json
 {
-  "goal_type": "lose_fat",              // 目标类型: lose_fat/keep_fit/gain_muscle
-  "target_weight_kg": 65.0,             // 目标体重(公斤)
-  "weekly_change_kg": 0.5,              // 每周计划变化的体重(公斤)
-  "target_date": "2023-12-31",          // 目标日期，格式YYYY-MM-DD
-  "diet_type": "normal",                // 饮食类型: normal/vegetarian/low_carb等
-  "taste_preferences": ["清淡", "酸的"], // 口味偏好
-  "food_intolerances": ["海鲜"]         // 食物不耐受/禁忌
+  "goal_type": "lose_fat",              // 目标类型: lose_fat/keep_fit/gain_muscle，必填
+  "target_weight_kg": 65.0,             // 目标体重(公斤)，必填
+  "weekly_change_kg": 0.5,              // 每周计划变化的体重(公斤)，必填
+  "target_date": "2023-12-31",          // 目标日期，格式YYYY-MM-DD，必填
+  "diet_type": "normal",                // 饮食类型: normal/vegetarian/meat_lover，必填
+  "taste_preferences": ["清淡", "酸的"], // 口味偏好，必填，至少选择1个
+  "food_intolerances": ["海鲜"]         // 食物不耐受/禁忌，必填，至少选择1个
 }
 ```
 
@@ -191,13 +218,17 @@ GET /user/goal
     "target_weight_kg": 65.0,             // 目标体重(公斤)
     "weekly_change_kg": 0.5,              // 每周计划变化的体重(公斤)
     "target_date": "2023-12-31",          // 目标日期，格式YYYY-MM-DD
-    "diet_type": "normal",                // 饮食类型: normal/vegetarian/low_carb等
+    "diet_type": "normal",                // 饮食类型: normal/vegetarian/meat_lover
     "taste_preferences": ["清淡", "酸的"], // 口味偏好
     "food_intolerances": ["海鲜"],         // 食物不耐受/禁忌
     "created_at": "2023-04-01T12:00:00Z"  // 创建时间
   }
 }
 ```
+
+**说明**
+- 如果用户还没有设置健康目标，`data`字段将为`null`
+- 首次使用的用户需要先通过更新健康目标接口设置目标后才能获取到数据
 
 ## 健康分析相关接口（需要认证）
 
@@ -264,6 +295,147 @@ GET /health/history?limit=10
   ]
 }
 ```
+
+## 体重管理相关接口（需要认证）
+
+### 手动记录体重
+
+**请求**
+```
+POST /user/weight
+```
+
+**请求参数**
+```json
+{
+  "weight_kg": 85.5  // 体重(公斤)，范围20-500kg
+}
+```
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": null
+}
+```
+
+### 获取体重历史记录
+
+**请求**
+```
+GET /user/weight/history?limit=30
+```
+
+**查询参数**
+- limit: 可选，限制返回的记录数量，默认为30，最多获取一年内的数据
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": [
+    {
+      "id": 1,
+      "weight_kg": 85.5,
+      "record_date": "2023-05-01T00:00:00Z",
+      "created_at": "2023-05-01T10:30:00Z"
+    },
+    {
+      "id": 2,
+      "weight_kg": 85.2,
+      "record_date": "2023-04-30T00:00:00Z",
+      "created_at": "2023-04-30T09:15:00Z"
+    }
+  ]
+}
+```
+
+### 获取当前体重信息
+
+**请求**
+```
+GET /user/weight/current
+```
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": {
+    "weight_kg": 85.5,
+    "record_date": "2023-05-01T00:00:00Z",
+    "days_ago": 2  // 距离现在多少天前记录的
+  }
+}
+```
+
+### 删除体重记录
+
+**请求**
+```
+DELETE /user/weight/{id}
+```
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": null
+}
+```
+
+**说明**
+- 只能删除自己的体重记录
+- 删除不存在的记录会返回错误
+
+### 获取体重统计分析
+
+**请求**
+```
+GET /user/weight/statistics?days=30
+```
+
+**查询参数**
+- days: 可选，统计天数，默认为30天
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": {
+    "current_weight": 85.5,    // 当前体重
+    "min_weight": 84.8,        // 最低体重
+    "max_weight": 86.2,        // 最高体重
+    "avg_weight": 85.3,        // 平均体重
+    "weight_change": -0.7,     // 体重变化(正数为增加，负数为减少)
+    "trend_data": [            // 趋势数据点，用于绘制图表
+      {
+        "date": "2023-04-01T00:00:00Z",
+        "weight_kg": 86.2
+      },
+      {
+        "date": "2023-04-15T00:00:00Z",
+        "weight_kg": 85.8
+      },
+      {
+        "date": "2023-05-01T00:00:00Z",
+        "weight_kg": 85.5
+      }
+    ]
+  }
+}
+```
+
+**说明**
+- 统计数据基于指定天数内的体重记录
+- trend_data 按时间顺序排列，可用于绘制体重变化曲线
+- 如果没有体重记录会返回错误
 
 ## 每日营养相关接口（需要认证）
 
@@ -825,6 +997,462 @@ GET /api/v1/food/recognition/adopted?page=1&page_size=20&start_date=2023-01-01&e
       ]
       // ... 其他日期分组
     }
+  }
+}
+```
+
+## 运动记录相关接口（需要认证）
+
+### 创建运动记录
+
+**请求**
+```
+POST /api/v1/exercise
+```
+
+**请求参数**
+```json
+{
+  "exercise_type": "跑步",           // 运动类型，必填
+  "duration_min": 30.5,             // 持续时间（分钟），必填，大于0
+  "calories_burned": 250.0,         // 消耗热量（千卡），必填，大于等于0
+  "distance_km": 5.2,               // 距离（公里），可选
+  "start_time": "2023-12-01T10:30:00Z"  // 运动开始时间，RFC3339格式，必填
+}
+```
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": {
+    "id": 1,
+    "user_id": 1,
+    "exercise_type": "跑步",
+    "duration_min": 30.5,
+    "calories_burned": 250.0,
+    "distance_km": 5.2,
+    "start_time": "2023-12-01T10:30:00Z",
+    "created_at": "2023-12-01T10:30:15Z",
+    "updated_at": "2023-12-01T10:30:15Z"
+  }
+}
+```
+
+### 获取单个运动记录
+
+**请求**
+```
+GET /api/v1/exercise/{id}
+```
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": {
+    "id": 1,
+    "user_id": 1,
+    "exercise_type": "跑步",
+    "duration_min": 30.5,
+    "calories_burned": 250.0,
+    "distance_km": 5.2,
+    "start_time": "2023-12-01T10:30:00Z",
+    "created_at": "2023-12-01T10:30:15Z",
+    "updated_at": "2023-12-01T10:30:15Z"
+  }
+}
+```
+
+### 获取运动历史记录
+
+**请求**
+```
+GET /api/v1/exercise/history?start_date=2023-12-01&end_date=2023-12-07&limit=20
+```
+
+**查询参数**
+- start_date: 开始日期，YYYY-MM-DD格式，必填
+- end_date: 结束日期，YYYY-MM-DD格式，必填
+- limit: 限制数量，可选
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": [
+    {
+      "id": 1,
+      "user_id": 1,
+      "exercise_type": "跑步",
+      "duration_min": 30.5,
+      "calories_burned": 250.0,
+      "distance_km": 5.2,
+      "start_time": "2023-12-01T10:30:00Z",
+      "created_at": "2023-12-01T10:30:15Z",
+      "updated_at": "2023-12-01T10:30:15Z"
+    }
+    // ... 其他记录
+  ]
+}
+```
+
+### 获取今日运动记录
+
+**请求**
+```
+GET /api/v1/exercise/today
+```
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": [
+    {
+      "id": 1,
+      "user_id": 1,
+      "exercise_type": "跑步",
+      "duration_min": 30.5,
+      "calories_burned": 250.0,
+      "distance_km": 5.2,
+      "start_time": "2023-12-01T10:30:00Z",
+      "created_at": "2023-12-01T10:30:15Z",
+      "updated_at": "2023-12-01T10:30:15Z"
+    }
+    // ... 其他今日记录
+  ]
+}
+```
+
+### 更新运动记录
+
+**请求**
+```
+PUT /api/v1/exercise/{id}
+```
+
+**请求参数**
+```json
+{
+  "exercise_type": "慢跑",           // 可选
+  "duration_min": 35.0,             // 可选
+  "calories_burned": 280.0,         // 可选
+  "distance_km": 6.0,               // 可选
+  "start_time": "2023-12-01T10:30:00Z"  // 可选
+}
+```
+
+**说明**
+- 所有字段均为可选，只更新提供的字段
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": {
+    "id": 1,
+    "user_id": 1,
+    "exercise_type": "慢跑",
+    "duration_min": 35.0,
+    "calories_burned": 280.0,
+    "distance_km": 6.0,
+    "start_time": "2023-12-01T10:30:00Z",
+    "created_at": "2023-12-01T10:30:15Z",
+    "updated_at": "2023-12-01T11:15:30Z"
+  }
+}
+```
+
+### 删除运动记录
+
+**请求**
+```
+DELETE /api/v1/exercise/{id}
+```
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": null
+}
+```
+
+### 获取运动统计数据
+
+**请求**
+```
+GET /api/v1/exercise/statistics?start_date=2023-12-01&end_date=2023-12-07
+```
+
+**查询参数**
+- start_date: 开始日期，YYYY-MM-DD格式，必填
+- end_date: 结束日期，YYYY-MM-DD格式，必填
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": {
+    "total_exercises": 5,          // 总运动次数
+    "total_duration": 150.5,       // 总持续时间（分钟）
+    "total_calories": 1250.0,      // 总消耗热量（千卡）
+    "total_distance": 25.8,        // 总距离（公里）
+    "avg_duration": 30.1,          // 平均持续时间（分钟）
+    "avg_calories": 250.0          // 平均消耗热量（千卡）
+  }
+}
+```
+
+### 获取运动选项配置
+
+**请求**
+```
+GET /api/v1/exercise/options
+```
+
+**说明**
+- 获取前端展示用的运动记录选项配置
+- 无需参数，返回所有可选的配置项
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": {
+    "exercise_types": [
+      "跑步", "走路", "骑行", "游泳", "瑜伽",
+      "健身", "篮球", "足球", "网球", "羽毛球",
+      "乒乓球", "爬山", "跳舞", "其他"
+    ]
+  }
+}
+```
+
+## 心情记录相关接口（需要认证）
+
+### 创建心情记录
+
+**请求**
+```
+POST /api/v1/mood
+```
+
+**请求参数**
+```json
+{
+  "time_context": "now",           // 时间上下文："now"表示当下，"today"表示当天，必填
+  "mood_level": 3,                 // 情绪等级：1-7级（1=非常愉快，4=不悲不喜，7=非常不愉快），必填
+  "mood_tags": ["平静", "满足"],    // 情绪标签数组，可选
+  "influences": ["工作", "家人"]    // 影响因素数组，可选
+}
+```
+
+**最简请求示例**
+```json
+{
+  "time_context": "now",
+  "mood_level": 4
+}
+```
+
+**说明**
+- time_context: 记录的是什么时候的情绪，必填
+- mood_level: 情绪等级，必填。1=非常愉快, 2=愉快, 3=有点愉快, 4=不悲不喜, 5=有点不愉快, 6=不愉快, 7=非常不愉快
+- mood_tags: 描述具体的情绪感受，可选，支持多选
+- influences: 对情绪产生影响的因素，可选，支持多选
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": {
+    "id": 1,
+    "user_id": 1,
+    "time_context": "now",
+    "mood_level": 3,
+    "mood_tags": ["平静", "满足"],
+    "influences": ["工作", "家人"],
+    "record_time": "2023-12-01T15:30:00Z",
+    "created_at": "2023-12-01T15:30:05Z"
+  }
+}
+```
+
+### 获取单个心情记录
+
+**请求**
+```
+GET /api/v1/mood/{id}
+```
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": {
+    "id": 1,
+    "user_id": 1,
+    "time_context": "now",
+    "mood_level": 3,
+    "mood_tags": ["平静", "满足"],
+    "influences": ["工作", "家人"],
+    "record_time": "2023-12-01T15:30:00Z",
+    "created_at": "2023-12-01T15:30:05Z"
+  }
+}
+```
+
+### 获取心情历史记录
+
+**请求**
+```
+GET /api/v1/mood/history?start_date=2023-12-01&end_date=2023-12-07&limit=20
+```
+
+**查询参数**
+- start_date: 开始日期，YYYY-MM-DD格式，必填
+- end_date: 结束日期，YYYY-MM-DD格式，必填
+- limit: 限制数量，可选
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": [
+    {
+      "id": 1,
+      "user_id": 1,
+      "time_context": "now",
+      "mood_level": 3,
+      "mood_tags": ["平静", "满足"],
+      "influences": ["工作", "家人"],
+      "record_time": "2023-12-01T15:30:00Z",
+      "created_at": "2023-12-01T15:30:05Z"
+    }
+    // ... 其他记录
+  ]
+}
+```
+
+### 获取今日心情记录
+
+**请求**
+```
+GET /api/v1/mood/today
+```
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": [
+    {
+      "id": 1,
+      "user_id": 1,
+      "time_context": "now",
+      "mood_level": 3,
+      "mood_tags": ["平静", "满足"],
+      "influences": ["工作", "家人"],
+      "record_time": "2023-12-01T15:30:00Z",
+      "created_at": "2023-12-01T15:30:05Z"
+    }
+    // ... 其他今日记录
+  ]
+}
+```
+
+### 删除心情记录
+
+**请求**
+```
+DELETE /api/v1/mood/{id}
+```
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": null
+}
+```
+
+### 获取心情统计数据
+
+**请求**
+```
+GET /api/v1/mood/statistics?start_date=2023-12-01&end_date=2023-12-07
+```
+
+**查询参数**
+- start_date: 开始日期，YYYY-MM-DD格式，必填
+- end_date: 结束日期，YYYY-MM-DD格式，必填
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": {
+    "total_records": 8,            // 总记录数
+    "avg_mood_level": 3.5          // 平均情绪等级
+  }
+}
+```
+
+### 获取心情选项配置
+
+**请求**
+```
+GET /api/v1/mood/options
+```
+
+**说明**
+- 获取前端展示用的心情记录选项配置
+- 无需参数，返回所有可选的配置项
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": {
+    "time_contexts": ["now", "today"],
+    "mood_levels": {
+      "1": "非常愉快",
+      "2": "愉快",
+      "3": "有点愉快",
+      "4": "不悲不喜",
+      "5": "有点不愉快",
+      "6": "不愉快",
+      "7": "非常不愉快"
+    },
+    "influences": [
+      "健康", "健身", "自我照顾", "爱好",
+      "身份", "心灵", 
+      "社群", "家人", "朋友", "伴侣", "约会",
+      "家务", "工作", "教育", "旅行",
+      "天气", "时事", "金钱"
+    ],
+    "common_mood_tags": [
+      "平静", "开心", "兴奋", "满足", "放松",
+      "烦躁", "焦虑", "沮丧", "愤怒", "疲惫",
+      "无聊", "紧张", "困惑", "失望", "孤独"
+    ]
   }
 }
 ```

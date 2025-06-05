@@ -91,8 +91,14 @@ func (s *HealthAnalysisService) GenerateAnalysis(req AnalysisRequest) (*Analysis
 	// 计算每日总能量消耗(TDEE)，假设轻度活动水平系数为1.375
 	tdee := bmr * 1.375
 
+	// keep_fit模式下强制每周变化为0
+	weeklyChangeKG := goal.WeeklyChangeKG
+	if goal.GoalType == "keep_fit" {
+		weeklyChangeKG = 0
+	}
+
 	// 根据目标计算推荐热量
-	recommendedCalories := calculateRecommendedCalories(tdee, goal.GoalType, goal.WeeklyChangeKG)
+	recommendedCalories := calculateRecommendedCalories(tdee, goal.GoalType, weeklyChangeKG)
 
 	// 计算营养素建议
 	proteinNeedG, carbNeedG, fatNeedG := calculateNutrientNeeds(recommendedCalories, weightRecord.WeightKG, goal.GoalType)
@@ -106,7 +112,7 @@ func (s *HealthAnalysisService) GenerateAnalysis(req AnalysisRequest) (*Analysis
 	// 生成分析文本内容
 	analysisContent := generateAnalysisContent(
 		bmi, bmiCategory, bmr, tdee, recommendedCalories,
-		weightRecord.WeightKG, goal.TargetWeightKG, goal.WeeklyChangeKG,
+		weightRecord.WeightKG, goal.TargetWeightKG, weeklyChangeKG,
 		daysToTarget, goal.GoalType, proteinNeedG, carbNeedG, fatNeedG,
 	)
 
@@ -140,7 +146,7 @@ func (s *HealthAnalysisService) GenerateAnalysis(req AnalysisRequest) (*Analysis
 		AnalysisContent:     analysisContent,
 		CurrentWeightKG:     weightRecord.WeightKG,
 		TargetWeightKG:      goal.TargetWeightKG,
-		WeeklyChangeKG:      goal.WeeklyChangeKG,
+		WeeklyChangeKG:      weeklyChangeKG, // 使用调整后的值
 		TargetDate:          goal.TargetDate.Format("2006-01-02"),
 		DaysToTarget:        daysToTarget,
 	}, nil
@@ -199,7 +205,7 @@ func calculateRecommendedCalories(tdee float64, goalType string, weeklyChangeKg 
 		return tdee - dailyCalorieAdjust
 	case "gain_muscle":
 		return tdee + dailyCalorieAdjust
-	default: // keep_fit
+	default:
 		return tdee
 	}
 }
@@ -267,17 +273,20 @@ func generateAnalysisContent(
 		bmi, bmiCategory, bmr, tdee, goalDesc, recommendedCalories,
 	)
 
-	if goalType == "lose_fat" || goalType == "gain_muscle" {
+	// 如果有体重变化计划，则显示
+	if weeklyChange != 0 {
 		changeWord := "增加"
-		if goalType == "lose_fat" {
+		if weeklyChange < 0 {
 			changeWord = "减少"
+			weeklyChange = -weeklyChange // 转为正数显示
 		}
 		content += fmt.Sprintf("，计划每周%s%.1fkg体重", changeWord, weeklyChange)
 	}
 
 	content += fmt.Sprintf("。\n\n营养素建议摄入量：\n- 蛋白质：%.0fg\n- 碳水化合物：%.0fg\n- 脂肪：%.0fg\n\n", protein, carb, fat)
 
-	if targetWeight != currentWeight {
+	// keep_fit模式不显示体重变化相关内容，因为weeklyChange已经固定为0
+	if goalType != "keep_fit" && targetWeight != currentWeight {
 		weightDiff := math.Abs(targetWeight - currentWeight)
 		changeWord := "减少"
 		if targetWeight > currentWeight {
@@ -289,9 +298,8 @@ func generateAnalysisContent(
 			changeWord, weightDiff,
 		)
 
-		if daysToTarget > 0 {
+		if daysToTarget > 0 && weeklyChange != 0 {
 			changeWord := "减少"
-
 			if targetWeight > currentWeight {
 				changeWord = "增加"
 			}
@@ -299,6 +307,8 @@ func generateAnalysisContent(
 			content += fmt.Sprintf("按照每周%s%.1fkg的速度，还需要约%d天可达成目标。",
 				changeWord, weeklyChange, daysToTarget)
 		}
+	} else if goalType == "keep_fit" {
+		content += "您的目标是保持当前体型，建议维持均衡的饮食和规律的运动。"
 	}
 
 	return content
