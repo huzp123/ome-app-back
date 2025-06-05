@@ -173,11 +173,13 @@ func (s *WeightService) GetWeightStatistics(userID int64, req *WeightStatisticsR
 	// 计算体重变化（最新 - 最早）
 	weightChange := weights[len(weights)-1].WeightKG - weights[0].WeightKG
 
-	// 生成趋势数据（简化版，选择关键数据点）
-	trendData := make([]WeightTrendPoint, 0)
+	// 生成趋势数据，直接使用过滤后的数据，确保每天只有一个记录
+	trendData := make([]WeightTrendPoint, 0, len(weights))
 
-	// 如果数据点较少，全部返回
-	if len(weights) <= 10 {
+	// 由于weights已经经过过滤，每天只有一条记录，所以可以直接全部返回
+	// 如果数据点太多，再进行采样
+	if len(weights) <= 20 {
+		// 数据点不多，全部返回
 		for _, weight := range weights {
 			trendData = append(trendData, WeightTrendPoint{
 				Date:     weight.RecordDate,
@@ -185,8 +187,13 @@ func (s *WeightService) GetWeightStatistics(userID int64, req *WeightStatisticsR
 			})
 		}
 	} else {
-		// 如果数据点较多，选择均匀分布的点
-		step := len(weights) / 10
+		// 数据点较多，进行均匀采样，但确保不重复
+		step := len(weights) / 15 // 最多返回15个点
+		if step < 1 {
+			step = 1
+		}
+
+		// 添加采样点
 		for i := 0; i < len(weights); i += step {
 			weight := weights[i]
 			trendData = append(trendData, WeightTrendPoint{
@@ -194,9 +201,11 @@ func (s *WeightService) GetWeightStatistics(userID int64, req *WeightStatisticsR
 				WeightKG: weight.WeightKG,
 			})
 		}
-		// 确保包含最后一个数据点
-		if len(trendData) == 0 || trendData[len(trendData)-1].Date != weights[len(weights)-1].RecordDate {
-			lastWeight := weights[len(weights)-1]
+
+		// 确保包含最后一个数据点（如果还没包含）
+		lastWeight := weights[len(weights)-1]
+		lastTrendPoint := trendData[len(trendData)-1]
+		if lastTrendPoint.Date.Format("2006-01-02") != lastWeight.RecordDate.Format("2006-01-02") {
 			trendData = append(trendData, WeightTrendPoint{
 				Date:     lastWeight.RecordDate,
 				WeightKG: lastWeight.WeightKG,
@@ -224,8 +233,9 @@ func filterDailyLastRecords(weights []model.UserWeight) []model.UserWeight {
 	dailyLastRecord := make(map[string]model.UserWeight)
 
 	for _, weight := range weights {
-		// 获取日期字符串 (YYYY-MM-DD)
-		dateKey := weight.RecordDate.Format("2006-01-02")
+		// 使用本地时区获取日期字符串 (YYYY-MM-DD)，避免时区问题
+		localTime := weight.RecordDate.Local()
+		dateKey := localTime.Format("2006-01-02")
 
 		// 如果该日期还没有记录，或者当前记录的时间更晚，则更新该日期的记录
 		if existing, exists := dailyLastRecord[dateKey]; !exists || weight.RecordDate.After(existing.RecordDate) {
@@ -239,11 +249,13 @@ func filterDailyLastRecords(weights []model.UserWeight) []model.UserWeight {
 		result = append(result, weight)
 	}
 
-	// 按记录日期排序（从早到晚）
-	for i := 0; i < len(result)-1; i++ {
-		for j := i + 1; j < len(result); j++ {
-			if result[i].RecordDate.After(result[j].RecordDate) {
-				result[i], result[j] = result[j], result[i]
+	// 使用更简单的排序方法，按记录日期排序（从早到晚）
+	if len(result) > 1 {
+		for i := 0; i < len(result)-1; i++ {
+			for j := i + 1; j < len(result); j++ {
+				if result[i].RecordDate.After(result[j].RecordDate) {
+					result[i], result[j] = result[j], result[i]
+				}
 			}
 		}
 	}
