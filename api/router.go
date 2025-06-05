@@ -10,7 +10,7 @@ import (
 // SetupRouter 设置API路由
 func SetupRouter(engine *gin.Engine, userAPI *v1.UserAPI, healthAnalysisAPI *v1.HealthAnalysisAPI,
 	nutritionAPI *v1.NutritionAPI, chatAPI *v1.ChatAPI, foodRecognitionAPI *v1.FoodRecognitionAPI,
-	fileAPI *v1.FileAPI, exerciseAPI *v1.ExerciseAPI, moodAPI *v1.MoodAPI) {
+	fileAPI *v1.FileAPI, exerciseAPI *v1.ExerciseAPI, moodAPI *v1.MoodAPI, weightAPI *v1.WeightAPI) {
 	// 全局中间件
 	engine.Use(gin.Logger())
 	engine.Use(gin.Recovery())
@@ -94,5 +94,12 @@ func SetupRouter(engine *gin.Engine, userAPI *v1.UserAPI, healthAnalysisAPI *v1.
 		auth.GET("/mood/today", moodAPI.GetTodayMoods)
 		auth.GET("/mood/statistics", moodAPI.GetMoodStatistics)
 		auth.GET("/mood/options", moodAPI.GetMoodOptions)
+
+		// 体重管理
+		auth.POST("/user/weight", weightAPI.CreateWeight)
+		auth.GET("/user/weight/history", weightAPI.GetWeightHistory)
+		auth.GET("/user/weight/current", weightAPI.GetCurrentWeight)
+		auth.DELETE("/user/weight/:id", weightAPI.DeleteWeight)
+		auth.GET("/user/weight/statistics", weightAPI.GetWeightStatistics)
 	}
 }

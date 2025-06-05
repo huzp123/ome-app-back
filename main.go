@@ -73,6 +73,7 @@ func main() {
 	)
 	exerciseService := service.NewExerciseService(userExerciseDAO)
 	moodService := service.NewMoodService(moodRecordDAO)
+	weightService := service.NewWeightService(userWeightDAO)
 
 	// testAIConnection(aiService)
 
@@ -85,10 +86,11 @@ func main() {
 	fileAPI := v1.NewFileAPI(fileService)
 	exerciseAPI := v1.NewExerciseAPI(exerciseService)
 	moodAPI := v1.NewMoodAPI(moodService)
+	weightAPI := v1.NewWeightAPI(weightService)
 
 	// 设置路由
 	r := gin.Default()
-	api.SetupRouter(r, userAPI, healthAnalysisAPI, nutritionAPI, chatAPI, foodRecognitionAPI, fileAPI, exerciseAPI, moodAPI)
+	api.SetupRouter(r, userAPI, healthAnalysisAPI, nutritionAPI, chatAPI, foodRecognitionAPI, fileAPI, exerciseAPI, moodAPI, weightAPI)
 
 	// 启动服务器
 	serverAddr := fmt.Sprintf(":%d", cfg.Server.Port)
