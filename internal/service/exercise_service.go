@@ -27,7 +27,7 @@ func NewExerciseService(exerciseDAO *dao.UserExerciseDAO) *ExerciseService {
 type CreateExerciseRequest struct {
 	ExerciseType   string   `json:"exercise_type" binding:"required"`
 	DurationMin    float64  `json:"duration_min" binding:"required,gt=0"`
-	CaloriesBurned float64  `json:"calories_burned" binding:"required,gte=0"`
+	CaloriesBurned float64  `json:"calories_burned" binding:"gte=0"`
 	DistanceKM     *float64 `json:"distance_km,omitempty"`
 	StartTime      string   `json:"start_time" binding:"required"` // 格式: "2023-12-01T10:30:00Z"
 }
