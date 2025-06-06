@@ -60,7 +60,7 @@ func (db *DBConfig) GetDSN() string {
 		return fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d",
 			db.Host, db.User, db.Password, db.DBName, db.Port)
 	case "mysql":
-		return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local&sql_mode='ALLOW_INVALID_DATES'",
+		return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=UTC",
 			db.User, db.Password, db.Host, db.Port, db.DBName)
 	default:
 		log.Fatalf("不支持的数据库类型: %s", db.Type)

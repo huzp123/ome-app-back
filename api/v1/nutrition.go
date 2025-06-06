@@ -2,6 +2,7 @@ package v1
 
 import (
 	"errors"
+	"log"
 	"net/http"
 	"time"
 
@@ -33,8 +34,12 @@ func (a *NutritionAPI) GetTodayNutrition(c *gin.Context) {
 
 	nutrition, err := a.nutritionService.GetTodayNutrition(userID)
 	if err != nil {
+		// 添加详细的错误日志
+		log.Printf("[营养API] 用户(ID:%d)获取今日营养数据失败: %v", userID, err)
+
 		// 特别处理用户没有健康分析报告的情况
 		if errors.Is(err, service.ErrNoHealthAnalysis) {
+			log.Printf("[营养API] 用户(ID:%d)没有健康分析报告", userID)
 			c.JSON(http.StatusOK, gin.H{
 				"code":    10001, // 使用特定错误码标识需要健康分析
 				"msg":     "请先生成健康分析",
@@ -46,9 +51,12 @@ func (a *NutritionAPI) GetTodayNutrition(c *gin.Context) {
 
 		// 判断错误类型，给出更具体的错误信息
 		if errors.Is(err, gorm.ErrRecordNotFound) {
+			log.Printf("[营养API] 用户(ID:%d)返回记录未找到错误，这不应该发生", userID)
 			responseError(c, http.StatusNotFound, "未找到营养数据记录")
 			return
 		}
+
+		log.Printf("[营养API] 用户(ID:%d)获取营养数据出现未知错误: %v", userID, err)
 		responseError(c, http.StatusInternalServerError, "获取营养数据失败", err.Error())
 		return
 	}
