@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -12,6 +13,7 @@ import (
 	"net/http"
 	"net/http/httptrace"
 	"net/url"
+	"strings"
 	"time"
 
 	"ome-app-back/config"
@@ -84,6 +86,7 @@ type ChatRequest struct {
 	Messages    []map[string]interface{} `json:"messages"`
 	MaxTokens   int                      `json:"max_tokens,omitempty"`
 	Temperature float64                  `json:"temperature"`
+	Stream      bool                     `json:"stream,omitempty"`
 }
 
 // ChatResponse AI响应结构
@@ -104,6 +107,24 @@ type ChatResponse struct {
 		CompletionTokens int `json:"completion_tokens"`
 		TotalTokens      int `json:"total_tokens"`
 	} `json:"usage"`
+}
+
+// ChatStreamChoice 流式响应中的选择
+type ChatStreamChoice struct {
+	Index int `json:"index"`
+	Delta struct {
+		Content string `json:"content"`
+	} `json:"delta"`
+	FinishReason *string `json:"finish_reason,omitempty"`
+}
+
+// ChatStreamResponse AI流式响应结构
+type ChatStreamResponse struct {
+	ID      string             `json:"id"`
+	Object  string             `json:"object"`
+	Created int64              `json:"created"`
+	Model   string             `json:"model"`
+	Choices []ChatStreamChoice `json:"choices"`
 }
 
 // makeAPIRequest 执行API请求，包含重试逻辑
@@ -358,6 +379,122 @@ func (s *AIService) ChatWithAI(messages []model.OpenAIMessage) (string, error) {
 	content := responseData.Choices[0].Message.Content
 	log.Printf("%s 成功获取回复, 内容: %s", logPrefix, content)
 	return content, nil
+}
+
+// ChatWithAIStream 发送聊天请求到AI并以流式返回
+func (s *AIService) ChatWithAIStream(messages []model.OpenAIMessage, out chan<- string) error {
+	logPrefix := "[AI聊天-流式]"
+	defer close(out)
+
+	// 测试模式直接返回预定义响应
+	if s.testMode {
+		log.Printf("%s 测试模式，返回预定义响应", logPrefix)
+		// 模拟流式输出
+		for _, char := range testChatResponse {
+			out <- string(char)
+			time.Sleep(5 * time.Millisecond)
+		}
+		return nil
+	}
+
+	if s.apiKey == "" {
+		log.Println(logPrefix + " 错误: API密钥未配置")
+		return errors.New("AI API密钥未配置")
+	}
+
+	// 转换为API请求格式
+	apiMessages := make([]map[string]interface{}, len(messages))
+	for i, msg := range messages {
+		apiMessages[i] = map[string]interface{}{
+			"role":    msg.Role,
+			"content": msg.Content,
+		}
+	}
+
+	// 准备请求体
+	requestBody := ChatRequest{
+		Model:       s.defaultModel,
+		Messages:    apiMessages,
+		MaxTokens:   s.maxTokens,
+		Temperature: s.temperature,
+		Stream:      true,
+	}
+
+	log.Printf("%s 准备请求: 模型=%s, 消息数=%d",
+		logPrefix, requestBody.Model, len(requestBody.Messages))
+
+	jsonData, err := json.Marshal(requestBody)
+	if err != nil {
+		log.Printf("%s 错误: 请求序列化失败: %v", logPrefix, err)
+		return fmt.Errorf("请求序列化失败: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "POST", s.apiURL, bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("创建请求失败: %w", err)
+	}
+
+	// 设置请求头
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+s.apiKey)
+	req.Header.Set("User-Agent", "OME-Nutrition-App/1.0")
+	req.Header.Set("Accept", "text/event-stream")
+	req.Header.Set("Cache-Control", "no-cache")
+	req.Header.Set("Connection", "keep-alive")
+
+	startTime := time.Now()
+	log.Printf("%s 发送请求...", logPrefix)
+
+	resp, err := s.client.Do(req)
+	if err != nil {
+		return fmt.Errorf("请求执行失败: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := ioutil.ReadAll(resp.Body)
+		return fmt.Errorf("API请求失败: HTTP %d, %s", resp.StatusCode, truncateResponse(body, 200))
+	}
+	log.Printf("%s 收到响应: HTTP状态=%d, 准备接收流数据...", logPrefix, resp.StatusCode)
+
+	scanner := bufio.NewScanner(resp.Body)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if len(line) == 0 {
+			continue
+		}
+
+		if strings.HasPrefix(line, "data: ") {
+			data := line[6:]
+			if data == "[DONE]" {
+				log.Printf("%s 流结束. 总耗时: %.2f秒", logPrefix, time.Since(startTime).Seconds())
+				return nil
+			}
+
+			var streamResp ChatStreamResponse
+			if err := json.Unmarshal([]byte(data), &streamResp); err != nil {
+				log.Printf("%s 解析流数据失败: %v, data: %s", logPrefix, err, data)
+				continue
+			}
+
+			if len(streamResp.Choices) > 0 {
+				content := streamResp.Choices[0].Delta.Content
+				if content != "" {
+					out <- content
+				}
+			}
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("读取流失败: %w", err)
+	}
+
+	log.Printf("%s 流处理完成. 总耗时: %.2f秒", logPrefix, time.Since(startTime).Seconds())
+	return nil
 }
 
 // ConvertToMessages 将聊天消息转换为API请求格式

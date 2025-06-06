@@ -2,6 +2,8 @@ package service
 
 import (
 	"log"
+	"strings"
+	"sync"
 	"time"
 
 	"ome-app-back/internal/dao"
@@ -48,7 +50,7 @@ func (s *ChatService) DeleteSession(sessionID string) error {
 }
 
 // SendMessage 发送消息并获取AI回复
-func (s *ChatService) SendMessage(userID int64, sessionID string, content string) (*model.ChatMessage, *model.ChatMessage, error) {
+func (s *ChatService) SendMessage(userID int64, sessionID string, content string) (*model.ChatMessage, <-chan string, error) {
 	log.Printf("[聊天] 用户(ID:%d)在会话(ID:%s)中发送新消息", userID, sessionID)
 	start := time.Now()
 
@@ -67,52 +69,75 @@ func (s *ChatService) SendMessage(userID int64, sessionID string, content string
 	}
 	log.Printf("[聊天] 用户消息已保存(ID:%d)", userMessage.ID)
 
-	// 获取会话历史消息
-	log.Printf("[聊天] 正在获取会话历史消息...")
-	messages, err := s.chatDAO.GetLastNMessages(sessionID, 10) // 获取最近10条消息
-	if err != nil {
-		log.Printf("[聊天] 错误: 获取会话历史消息失败: %v", err)
-		return userMessage, nil, err
-	}
-	log.Printf("[聊天] 成功获取%d条历史消息", len(messages))
+	// 创建一个通道，用于将AI的响应流式传输给调用者
+	responseChan := make(chan string, 10)
 
-	// 转换为AI服务格式的消息
-	aiMessages := s.aiService.ConvertToMessages(messages)
+	// 启动一个goroutine来处理AI交互和数据库保存
+	go func() {
+		defer close(responseChan)
 
-	// 添加系统消息
-	systemMessage := s.aiService.GetSystemMessageForChat()
-	aiMessages = append([]model.OpenAIMessage{systemMessage}, aiMessages...)
-	log.Printf("[聊天] 准备向AI发送%d条消息(含系统消息)", len(aiMessages))
+		// 获取会话历史消息
+		log.Printf("[聊天] 正在获取会话历史消息...")
+		messages, err := s.chatDAO.GetLastNMessages(sessionID, 10) // 获取最近10条消息
+		if err != nil {
+			log.Printf("[聊天] 错误: 获取会话历史消息失败: %v", err)
+			return
+		}
+		log.Printf("[聊天] 成功获取%d条历史消息", len(messages))
 
-	// 发送请求给AI
-	log.Printf("[聊天] 正在调用AI服务...")
-	aiResponse, err := s.aiService.ChatWithAI(aiMessages)
-	if err != nil {
-		log.Printf("[聊天] 错误: 从AI获取回复失败: %v", err)
-		return userMessage, nil, err
-	}
-	log.Printf("[聊天] 成功从AI获取回复，长度%d字符", len(aiResponse))
+		// 转换为AI服务格式的消息
+		aiMessages := s.aiService.ConvertToMessages(messages)
 
-	// 创建AI回复消息
-	assistantMessage := &model.ChatMessage{
-		SessionID: sessionID,
-		UserID:    userID,
-		Role:      model.RoleAssistant,
-		Content:   aiResponse,
-	}
+		// 添加系统消息
+		systemMessage := s.aiService.GetSystemMessageForChat()
+		aiMessages = append([]model.OpenAIMessage{systemMessage}, aiMessages...)
+		log.Printf("[聊天] 准备向AI发送%d条消息(含系统消息)", len(aiMessages))
 
-	// 保存AI回复
-	if err := s.chatDAO.AddMessage(assistantMessage); err != nil {
-		log.Printf("[聊天] 错误: 保存AI回复失败: %v", err)
-		return userMessage, nil, err
-	}
-	log.Printf("[聊天] AI回复已保存(ID:%d)", assistantMessage.ID)
+		// 用于从AI服务接收流式响应的内部通道
+		aiStreamChan := make(chan string)
+		var fullResponse strings.Builder
+		var wg sync.WaitGroup
+		wg.Add(1)
 
-	// 计算总处理时间
-	duration := time.Since(start)
-	log.Printf("[聊天] 消息处理完成, 总耗时: %.2f秒", duration.Seconds())
+		go func() {
+			defer wg.Done()
+			for chunk := range aiStreamChan {
+				fullResponse.WriteString(chunk)
+				responseChan <- chunk
+			}
+		}()
 
-	return userMessage, assistantMessage, nil
+		// 调用流式AI服务
+		log.Printf("[聊天] 正在调用AI流式服务...")
+		err = s.aiService.ChatWithAIStream(aiMessages, aiStreamChan)
+		if err != nil {
+			log.Printf("[聊天] 错误: 从AI获取流式回复失败: %v", err)
+		}
+
+		wg.Wait()
+		log.Printf("[聊天] 成功从AI获取流式回复，长度%d字符", fullResponse.Len())
+
+		// 创建并保存AI回复消息
+		if fullResponse.Len() > 0 {
+			assistantMessage := &model.ChatMessage{
+				SessionID: sessionID,
+				UserID:    userID,
+				Role:      model.RoleAssistant,
+				Content:   fullResponse.String(),
+			}
+
+			if err := s.chatDAO.AddMessage(assistantMessage); err != nil {
+				log.Printf("[聊天] 错误: 保存AI回复失败: %v", err)
+			} else {
+				log.Printf("[聊天] AI回复已保存(ID:%d)", assistantMessage.ID)
+			}
+		}
+
+		duration := time.Since(start)
+		log.Printf("[聊天] 消息处理完成, 总耗时: %.2f秒", duration.Seconds())
+	}()
+
+	return userMessage, responseChan, nil
 }
 
 // GetMessages 获取会话的消息列表

@@ -705,7 +705,7 @@ GET /api/v1/chat/sessions/{session_id}/messages
 }
 ```
 
-### 发送消息
+### 发送消息 (流式响应)
 
 **请求**
 ```
@@ -720,30 +720,36 @@ POST /api/v1/chat/sessions/{session_id}/messages
 ```
 
 **响应**
-```json
-{
-  "code": 0,
-  "msg": "成功",
-  "data": {
-    "user_message": {
-      "id": 3,
-      "session_id": "sess_1234567890abcdef",
-      "user_id": 1,
-      "role": "user",
-      "content": "我应该如何搭配一顿减脂午餐?",
-      "created_at": "2023-05-01T10:35:00Z"
-    },
-    "assistant_message": {
-      "id": 4,
-      "session_id": "sess_1234567890abcdef",
-      "user_id": 1,
-      "role": "assistant",
-      "content": "减脂午餐可以考虑以下搭配：\n1. 主食：选择全谷物...",
-      "created_at": "2023-05-01T10:35:02Z"
-    }
-  }
-}
+- 接口会返回一个 `Content-Type: text/event-stream` 的流式响应。
+- 客户端应监听 `message` 事件来接收AI回复的文本块。
+- 流结束时，连接将自动关闭。
+
+**响应示例**
 ```
+event: message
+data: 减脂午餐
+
+event: message
+data: 可以
+
+event: message
+data: 考虑以下
+
+event: message
+data: 搭配：
+
+event: message
+data: \n1. 主食：
+
+event: message
+data: 选择全谷物...
+```
+
+**说明**
+- **重要变更**: 此接口已从返回单个JSON对象改为返回 Server-Sent Events (SSE) 流。前端需要相应地调整来处理流式数据。
+- 响应不再包含完整的 `user_message` 和 `assistant_message` 对象。客户端发送消息后，会立即开始接收AI的流式回复。
+- 用户发送的消息会由后端保存，但不会在本次响应中返回。
+- 完整的AI回复需要客户端将所有 `message` 事件的 `data` 拼接起来。
 
 ## 食物识别相关接口（需要认证）
 

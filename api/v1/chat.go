@@ -1,11 +1,11 @@
 package v1
 
 import (
+	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
-	"ome-app-back/internal/model"
 	"ome-app-back/internal/service"
 )
 
@@ -155,12 +155,6 @@ type SendMessageRequest struct {
 	Content string `json:"content" binding:"required"`
 }
 
-// 发送消息响应
-type SendMessageResponse struct {
-	UserMessage      model.ChatMessage `json:"user_message"`
-	AssistantMessage model.ChatMessage `json:"assistant_message"`
-}
-
 // SendMessage 发送消息
 func (a *ChatAPI) SendMessage(c *gin.Context) {
 	userID := getUserID(c)
@@ -181,16 +175,21 @@ func (a *ChatAPI) SendMessage(c *gin.Context) {
 		return
 	}
 
-	userMsg, assistantMsg, err := a.chatService.SendMessage(userID, sessionID, req.Content)
+	_, responseChan, err := a.chatService.SendMessage(userID, sessionID, req.Content)
 	if err != nil {
 		responseError(c, http.StatusInternalServerError, "发送消息失败")
 		return
 	}
 
-	response := SendMessageResponse{
-		UserMessage:      *userMsg,
-		AssistantMessage: *assistantMsg,
-	}
+	c.Writer.Header().Set("Content-Type", "text/event-stream")
+	c.Writer.Header().Set("Cache-Control", "no-cache")
+	c.Writer.Header().Set("Connection", "keep-alive")
 
-	responseSuccess(c, response)
+	c.Stream(func(w io.Writer) bool {
+		if msg, ok := <-responseChan; ok {
+			c.SSEvent("message", msg)
+			return true
+		}
+		return false
+	})
 }
