@@ -260,37 +260,15 @@ func truncateResponse(response []byte, maxLen int) string {
 }
 
 // 预定义的测试响应
-const testChatResponse = `当然可以！增肌的饮食应该富含蛋白质、健康的脂肪和复合碳水化合物。以下是一个简单的增肌菜谱，供你参考：
+const testChatResponse = `有氧运动主要以提高心肺功能为主，但也可以辅助增肌。以下是一些适合的有氧运动：
 
-### 增肌菜谱：鸡胸肉碗
+1. **游泳**：全身运动，增强肌肉力量和耐力。
+2. **骑自行车**：可以调节强度，有助于腿部肌肉发展。
+3. **跳绳**：提高心率，锻炼全身肌肉，便于携带。
+4. **慢跑或快走**：增强心肺功能，同时可以保持体重。
+5. **舞蹈**：愉悦的同时锻炼肌肉力量和协调性。
 
-**材料：**
-- 鸡胸肉 200克
-- 糙米或 quinoa 100克（生重）
-- 西兰花 100克
-- 红椒 1个
-- 橄榄油 1汤匙
-- 大蒜 2瓣（切碎）
-- 盐和胡椒粉 适量
-- 柠檬汁（可选）
-
-**做法：**
-1. **准备糙米或quinoa**：按照包装上的指示煮熟，然后放置一旁备用。
-2. **处理鸡胸肉**：将鸡胸肉切成块，用盐、胡椒粉和切碎的大蒜腌制15分钟。
-3. **烹饪鸡胸肉**：在平底锅中加热橄榄油，将腌好的鸡胸肉放入锅中，煎至两面金黄并完全熟透。
-4. **蒸西兰花和红椒**：在蒸锅中将西兰花和切好的红椒蒸约5-7分钟，保持菜肴的脆感和营养。
-5. **组合**：在碗中放入煮好的糙米或quinoa，加入鸡胸肉和蒸好的蔬菜，淋上少许橄榄油和柠檬汁，搅拌均匀后即可享用。
-
-### 营养价值：
-- **鸡胸肉**：高蛋白质，低脂肪，适合增肌。
-- **糙米或quinoa**：提供复合碳水化合物，能量持久。
-- **西兰花和红椒**：富含维生素、矿物质和抗氧化剂，有助于身体的整体健康。
-
-### 小贴士：
-- 你可以根据自己的口味添加其他蔬菜，如菠菜、胡萝卜等。
-- 适当增加坚果和种子也可以提供健康的脂肪，促进肌肉增长。
-
-希望这个菜谱能帮助你实现增肌目标！如果你有其他饮食需求或问题，随时问我！`
+结合有氧运动和力量训练，可以更好地实现增肌目标。记得饮食均衡，确保摄入足够的蛋白质！`
 
 // 简化版食物识别测试响应
 const testFoodRecognitionResponse = `{
@@ -315,7 +293,11 @@ func (s *AIService) ChatWithAI(messages []model.OpenAIMessage) (string, error) {
 	// 测试模式直接返回预定义响应
 	if s.testMode {
 		log.Printf("%s 测试模式，返回预定义响应", logPrefix)
-		return testChatResponse, nil
+		log.Printf("%s 测试模式原始完整回复内容: %s", logPrefix, testChatResponse)
+		// 将换行符替换为\n字符串，以便前端正确处理markdown
+		processedResponse := strings.ReplaceAll(testChatResponse, "\n", "\\n")
+		log.Printf("%s 测试模式处理后发送给前端的内容: %s", logPrefix, processedResponse)
+		return processedResponse, nil
 	}
 
 	if s.apiKey == "" {
@@ -376,9 +358,13 @@ func (s *AIService) ChatWithAI(messages []model.OpenAIMessage) (string, error) {
 	}
 
 	// 返回AI回复内容
-	content := responseData.Choices[0].Message.Content
-	log.Printf("%s 成功获取回复, 内容: %s", logPrefix, content)
-	return content, nil
+	originalContent := responseData.Choices[0].Message.Content
+	log.Printf("%s 成功获取原始回复, 内容: %s", logPrefix, originalContent)
+
+	// 将换行符替换为\n字符串，以便前端正确处理markdown
+	processedContent := strings.ReplaceAll(originalContent, "\n", "\\n")
+	log.Printf("%s 处理后发送给前端的内容: %s", logPrefix, processedContent)
+	return processedContent, nil
 }
 
 // ChatWithAIStream 发送聊天请求到AI并以流式返回
@@ -389,8 +375,12 @@ func (s *AIService) ChatWithAIStream(messages []model.OpenAIMessage, out chan<- 
 	// 测试模式直接返回预定义响应
 	if s.testMode {
 		log.Printf("%s 测试模式，返回预定义响应", logPrefix)
+		log.Printf("%s 测试模式原始完整回复内容: %s", logPrefix, testChatResponse)
+		// 将换行符替换为\n字符串，以便前端正确处理markdown
+		processedResponse := strings.ReplaceAll(testChatResponse, "\n", "\\n")
+		log.Printf("%s 测试模式处理后发送给前端的内容: %s", logPrefix, processedResponse)
 		// 模拟流式输出
-		for _, char := range testChatResponse {
+		for _, char := range processedResponse {
 			out <- string(char)
 			time.Sleep(5 * time.Millisecond)
 		}
@@ -460,6 +450,7 @@ func (s *AIService) ChatWithAIStream(messages []model.OpenAIMessage, out chan<- 
 	}
 	log.Printf("%s 收到响应: HTTP状态=%d, 准备接收流数据...", logPrefix, resp.StatusCode)
 
+	var fullContent strings.Builder // 用于收集完整的流式响应内容
 	scanner := bufio.NewScanner(resp.Body)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -471,6 +462,10 @@ func (s *AIService) ChatWithAIStream(messages []model.OpenAIMessage, out chan<- 
 			data := line[6:]
 			if data == "[DONE]" {
 				log.Printf("%s 流结束. 总耗时: %.2f秒", logPrefix, time.Since(startTime).Seconds())
+				originalFullContent := fullContent.String()
+				processedFullContent := strings.ReplaceAll(originalFullContent, "\n", "\\n")
+				log.Printf("%s 原始完整回复内容: %s", logPrefix, originalFullContent)
+				log.Printf("%s 处理后发送给前端的完整内容: %s", logPrefix, processedFullContent)
 				return nil
 			}
 
@@ -483,7 +478,10 @@ func (s *AIService) ChatWithAIStream(messages []model.OpenAIMessage, out chan<- 
 			if len(streamResp.Choices) > 0 {
 				content := streamResp.Choices[0].Delta.Content
 				if content != "" {
-					out <- content
+					fullContent.WriteString(content) // 收集完整内容
+					// 将换行符替换为\n字符串，以便前端正确处理markdown
+					processedContent := strings.ReplaceAll(content, "\n", "\\n")
+					out <- processedContent
 				}
 			}
 		}
@@ -494,6 +492,10 @@ func (s *AIService) ChatWithAIStream(messages []model.OpenAIMessage, out chan<- 
 	}
 
 	log.Printf("%s 流处理完成. 总耗时: %.2f秒", logPrefix, time.Since(startTime).Seconds())
+	originalFullContent := fullContent.String()
+	processedFullContent := strings.ReplaceAll(originalFullContent, "\n", "\\n")
+	log.Printf("%s 原始完整回复内容: %s", logPrefix, originalFullContent)
+	log.Printf("%s 处理后发送给前端的完整内容: %s", logPrefix, processedFullContent)
 	return nil
 }
 
@@ -562,7 +564,11 @@ func (s *AIService) AnalyzeImageWithAI(base64Image string, prompt string) (strin
 	// 测试模式直接返回预定义响应
 	if s.testMode {
 		log.Printf("%s 测试模式，返回预定义响应", logPrefix)
-		return testFoodRecognitionResponse, nil
+		log.Printf("%s 测试模式原始完整回复内容: %s", logPrefix, testFoodRecognitionResponse)
+		// 将换行符替换为\n字符串，以便前端正确处理markdown
+		processedResponse := strings.ReplaceAll(testFoodRecognitionResponse, "\n", "\\n")
+		log.Printf("%s 测试模式处理后发送给前端的内容: %s", logPrefix, processedResponse)
+		return processedResponse, nil
 	}
 
 	// 记录请求开始
@@ -634,7 +640,11 @@ func (s *AIService) AnalyzeImageWithAI(base64Image string, prompt string) (strin
 	}
 
 	// 返回AI回复内容
-	content := responseData.Choices[0].Message.Content
-	log.Printf("%s 成功获取回复, 内容: %s", logPrefix, truncateString(content, 200))
-	return content, nil
+	originalContent := responseData.Choices[0].Message.Content
+	log.Printf("%s 成功获取原始回复, 完整内容: %s", logPrefix, originalContent)
+
+	// 将换行符替换为\n字符串，以便前端正确处理markdown
+	processedContent := strings.ReplaceAll(originalContent, "\n", "\\n")
+	log.Printf("%s 处理后发送给前端的内容: %s", logPrefix, processedContent)
+	return processedContent, nil
 }
