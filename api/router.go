@@ -33,6 +33,7 @@ func SetupRouter(engine *gin.Engine, userAPI *v1.UserAPI, healthAnalysisAPI *v1.
 		// 用户注册登录
 		apiV1.POST("/register", userAPI.Register)
 		apiV1.POST("/login", userAPI.Login)
+		apiV1.POST("/wechat/login", userAPI.WechatLogin)
 
 		// 文件访问（无需权限验证的公共文件）
 		apiV1.GET("/files/*filepath", fileAPI.GetFile)

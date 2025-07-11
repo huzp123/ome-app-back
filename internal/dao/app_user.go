@@ -60,6 +60,18 @@ func (d *AppUserDAO) GetByEmail(email string) (*model.AppUser, error) {
 	return &user, nil
 }
 
+// GetByWechatOpenID 根据微信OpenID获取用户
+func (d *AppUserDAO) GetByWechatOpenID(openID string) (*model.AppUser, error) {
+	var user model.AppUser
+	if err := d.db.Where("wechat_openid = ?", openID).First(&user).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, errors.New("用户不存在")
+		}
+		return nil, err
+	}
+	return &user, nil
+}
+
 // Update 更新用户信息
 func (d *AppUserDAO) Update(user *model.AppUser) error {
 	return d.db.Save(user).Error

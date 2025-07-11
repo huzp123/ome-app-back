@@ -72,6 +72,39 @@ func (api *UserAPI) Login(c *gin.Context) {
 	})
 }
 
+// WechatLogin 微信登录
+func (api *UserAPI) WechatLogin(c *gin.Context) {
+	var req service.WechatLoginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		errcode.InvalidParams.WithDetails(err.Error()).Response(c)
+		return
+	}
+
+	// 记录微信登录请求
+	clientIP := c.ClientIP()
+	fmt.Printf("[微信登录请求] IP: %s, OpenID: %s, 用户名: %s\n",
+		clientIP, req.OpenID, req.UserName)
+
+	resp, err := api.userService.WechatLogin(req)
+	if err != nil {
+		// 记录微信登录失败
+		fmt.Printf("[微信登录失败] IP: %s, OpenID: %s, 错误: %s\n",
+			clientIP, req.OpenID, err.Error())
+		errcode.ServerError.WithDetails(err.Error()).Response(c)
+		return
+	}
+
+	// 记录微信登录成功
+	fmt.Printf("[微信登录成功] 用户ID: %d, IP: %s, OpenID: %s, 是否新用户: %t\n",
+		resp.UserID, clientIP, req.OpenID, resp.IsNewUser)
+
+	c.JSON(http.StatusOK, gin.H{
+		"code": 0,
+		"msg":  "成功",
+		"data": resp,
+	})
+}
+
 // UpdateProfile 更新用户档案
 func (api *UserAPI) UpdateProfile(c *gin.Context) {
 	var req service.UpdateProfileRequest

@@ -134,6 +134,22 @@ type LoginResponse struct {
 	IsProfileComplete bool   `json:"is_profile_complete"`
 }
 
+// WechatLoginRequest 微信登录请求
+type WechatLoginRequest struct {
+	OpenID    string `json:"openid" binding:"required"`
+	UserName  string `json:"user_name"`
+	AvatarURL string `json:"avatar_url"`
+}
+
+// WechatLoginResponse 微信登录响应
+type WechatLoginResponse struct {
+	UserID            int64  `json:"user_id"`
+	UserName          string `json:"user_name"`
+	Token             string `json:"token"`
+	IsNewUser         bool   `json:"is_new_user"`
+	IsProfileComplete bool   `json:"is_profile_complete"`
+}
+
 // Login 用户登录
 func (s *UserService) Login(req LoginRequest) (*LoginResponse, error) {
 	var user *model.AppUser
@@ -177,6 +193,87 @@ func (s *UserService) Login(req LoginRequest) (*LoginResponse, error) {
 		UserID:            user.ID,
 		UserName:          user.UserName,
 		Token:             token,
+		IsProfileComplete: isProfileComplete,
+	}, nil
+}
+
+// WechatLogin 微信登录
+func (s *UserService) WechatLogin(req WechatLoginRequest) (*WechatLoginResponse, error) {
+	fmt.Printf("[微信登录] 开始处理微信登录请求: OpenID=%s, UserName=%s\n", req.OpenID, req.UserName)
+
+	// 首先尝试根据OpenID查找用户
+	user, err := s.userDAO.GetByWechatOpenID(req.OpenID)
+	isNewUser := false
+
+	if err != nil && err.Error() == "用户不存在" {
+		// 用户不存在，创建新用户
+		fmt.Printf("[微信登录] 用户不存在，创建新用户: OpenID=%s\n", req.OpenID)
+		
+		user = &model.AppUser{
+			UserName: req.UserName,
+			WechatOpenID: sql.NullString{
+				String: req.OpenID,
+				Valid:  true,
+			},
+			AvatarURL: sql.NullString{
+				String: req.AvatarURL,
+				Valid:  req.AvatarURL != "",
+			},
+			// 微信登录时密码为空
+			PasswordHash: "",
+		}
+
+		if err := s.userDAO.Create(user); err != nil {
+			fmt.Printf("[微信登录] 创建用户失败: %v\n", err)
+			return nil, errors.New("创建用户失败: " + err.Error())
+		}
+		
+		isNewUser = true
+		fmt.Printf("[微信登录] 成功创建新用户, ID: %d\n", user.ID)
+	} else if err != nil {
+		// 其他数据库错误
+		fmt.Printf("[微信登录] 数据库查询失败: %v\n", err)
+		return nil, errors.New("数据库查询失败: " + err.Error())
+	} else {
+		// 用户已存在，更新用户信息
+		fmt.Printf("[微信登录] 用户已存在，更新用户信息: UserID=%d\n", user.ID)
+		
+		// 更新用户名和头像（如果提供了的话）
+		if req.UserName != "" {
+			user.UserName = req.UserName
+		}
+		if req.AvatarURL != "" {
+			user.AvatarURL = sql.NullString{
+				String: req.AvatarURL,
+				Valid:  true,
+			}
+		}
+
+		if err := s.userDAO.Update(user); err != nil {
+			fmt.Printf("[微信登录] 更新用户信息失败: %v\n", err)
+			return nil, errors.New("更新用户信息失败: " + err.Error())
+		}
+		
+		fmt.Printf("[微信登录] 成功更新用户信息\n")
+	}
+
+	// 检查用户档案是否完善
+	isProfileComplete := user.HeightCM.Valid && !user.BirthDate.IsZero() && user.Sex != ""
+
+	// 生成JWT Token
+	token, err := middleware.GenerateToken(user.ID)
+	if err != nil {
+		fmt.Printf("[微信登录] 生成令牌失败: %v\n", err)
+		return nil, errors.New("生成令牌失败")
+	}
+
+	fmt.Printf("[微信登录] 微信登录流程完成: 用户ID=%d, 用户名=%s, 是否新用户=%t\n", user.ID, user.UserName, isNewUser)
+	
+	return &WechatLoginResponse{
+		UserID:            user.ID,
+		UserName:          user.UserName,
+		Token:             token,
+		IsNewUser:         isNewUser,
 		IsProfileComplete: isProfileComplete,
 	}, nil
 }
@@ -326,6 +423,8 @@ type GetUserInfoResponse struct {
 	UserName          string    `json:"user_name"`
 	Phone             string    `json:"phone,omitempty"`
 	Email             string    `json:"email,omitempty"`
+	WechatOpenID      string    `json:"wechat_openid,omitempty"`
+	AvatarURL         string    `json:"avatar_url,omitempty"`
 	HeightCM          float64   `json:"height_cm,omitempty"`
 	BirthDate         string    `json:"birth_date,omitempty"`
 	Sex               string    `json:"sex,omitempty"`
@@ -383,6 +482,14 @@ func (s *UserService) GetUserInfo(userID int64) (*GetUserInfoResponse, error) {
 
 	if user.Email.Valid {
 		response.Email = user.Email.String
+	}
+
+	if user.WechatOpenID.Valid {
+		response.WechatOpenID = user.WechatOpenID.String
+	}
+
+	if user.AvatarURL.Valid {
+		response.AvatarURL = user.AvatarURL.String
 	}
 
 	if user.HeightCM.Valid {
