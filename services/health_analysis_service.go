@@ -6,14 +6,15 @@ import (
 	"math"
 	"time"
 
-	"ome-app-back/repositories"
 	"ome-app-back/models"
+	"ome-app-back/repositories"
 )
 
 // HealthAnalysisService 处理健康分析相关业务逻辑
 type HealthAnalysisService struct {
 	userDAO           *repositories.AppUserDAO
 	userWeightDAO     *repositories.UserWeightDAO
+	userHeightDAO     *repositories.UserHeightDAO
 	userGoalDAO       *repositories.UserGoalDAO
 	healthAnalysisDAO *repositories.HealthAnalysisDAO
 }
@@ -22,12 +23,14 @@ type HealthAnalysisService struct {
 func NewHealthAnalysisService(
 	userDAO *repositories.AppUserDAO,
 	userWeightDAO *repositories.UserWeightDAO,
+	userHeightDAO *repositories.UserHeightDAO,
 	userGoalDAO *repositories.UserGoalDAO,
 	healthAnalysisDAO *repositories.HealthAnalysisDAO,
 ) *HealthAnalysisService {
 	return &HealthAnalysisService{
 		userDAO:           userDAO,
 		userWeightDAO:     userWeightDAO,
+		userHeightDAO:     userHeightDAO,
 		userGoalDAO:       userGoalDAO,
 		healthAnalysisDAO: healthAnalysisDAO,
 	}
@@ -65,8 +68,17 @@ func (s *HealthAnalysisService) GenerateAnalysis(req AnalysisRequest) (*Analysis
 	}
 
 	// 检查用户信息是否完整
-	if !user.HeightCM.Valid || user.BirthDate.IsZero() || user.Sex == "" {
+	if user.BirthDate.IsZero() || user.Sex == "" {
 		return nil, errors.New("请先完善个人资料")
+	}
+
+	// 获取用户当前身高
+	heightRecord, err := s.userHeightDAO.GetCurrentHeight(req.UserID)
+	if err != nil {
+		return nil, errors.New("获取用户身高信息失败")
+	}
+	if heightRecord == nil {
+		return nil, errors.New("请先记录身高信息")
 	}
 
 	// 获取用户当前体重
@@ -82,11 +94,11 @@ func (s *HealthAnalysisService) GenerateAnalysis(req AnalysisRequest) (*Analysis
 	}
 
 	// 计算BMI
-	bmi := calculateBMI(weightRecord.WeightKG, user.HeightCM.Float64)
+	bmi := calculateBMI(weightRecord.WeightKG, heightRecord.HeightCM)
 	bmiCategory := getBMICategory(bmi)
 
 	// 计算基础代谢率(BMR)
-	bmr := calculateBMR(user.Sex, weightRecord.WeightKG, user.HeightCM.Float64, calculateAge(user.BirthDate))
+	bmr := calculateBMR(user.Sex, weightRecord.WeightKG, heightRecord.HeightCM, calculateAge(user.BirthDate))
 
 	// 计算每日总能量消耗(TDEE)，假设轻度活动水平系数为1.375
 	tdee := bmr * 1.375

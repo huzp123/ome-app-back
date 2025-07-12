@@ -107,4 +107,11 @@ func setupAuthRoutes(router *gin.RouterGroup, handlers *v1.Handlers) {
 	router.GET("/user/weight/current", handlers.Weight.GetCurrentWeight)
 	router.DELETE("/user/weight/:id", handlers.Weight.DeleteWeight)
 	router.GET("/user/weight/statistics", handlers.Weight.GetWeightStatistics)
+
+	// 身高管理
+	router.POST("/user/height", handlers.Height.CreateHeight)
+	router.GET("/user/height/history", handlers.Height.GetHeightHistory)
+	router.GET("/user/height/current", handlers.Height.GetCurrentHeight)
+	router.DELETE("/user/height/:id", handlers.Height.DeleteHeight)
+	router.GET("/user/height/statistics", handlers.Height.GetHeightStatistics)
 }

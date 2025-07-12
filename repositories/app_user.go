@@ -2,7 +2,6 @@ package repositories
 
 import (
 	"errors"
-	"time"
 
 	"gorm.io/gorm"
 
@@ -75,29 +74,4 @@ func (d *AppUserDAO) GetByWechatOpenID(openID string) (*models.AppUser, error) {
 // Update 更新用户信息
 func (d *AppUserDAO) Update(user *models.AppUser) error {
 	return d.db.Save(user).Error
-}
-
-// UpdateBasicInfo 更新用户基本信息（已弃用，请使用Update方法）
-func (d *AppUserDAO) UpdateBasicInfo(id int64, heightCM float64, birthDate string, sex string) error {
-	// 创建一个更新映射
-	updates := map[string]interface{}{}
-
-	if heightCM > 0 {
-		updates["height_cm"] = heightCM
-	}
-
-	if birthDate != "" {
-		date, err := time.Parse("2006-01-02", birthDate)
-		if err == nil {
-			updates["birth_date"] = date
-		}
-	}
-
-	if sex != "" {
-		updates["sex"] = sex
-	}
-
-	return d.db.Model(&models.AppUser{}).
-		Where("id = ?", id).
-		Updates(updates).Error
 }

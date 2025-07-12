@@ -12,6 +12,7 @@ func Init(db *gorm.DB) error {
 		&AppUser{},
 		&UserGoal{},
 		&UserWeight{},
+		&UserHeight{},
 		&HealthAnalysis{},
 		&DailyNutrition{},
 		&ChatSession{},

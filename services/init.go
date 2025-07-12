@@ -17,6 +17,7 @@ type Services struct {
 	ExerciseService        *ExerciseService
 	MoodService            *MoodService
 	WeightService          *WeightService
+	HeightService          *HeightService
 }
 
 // Init 初始化所有业务服务
@@ -27,7 +28,7 @@ func Init(repos *repositories.Repositories, cfg *config.Config) *Services {
 
 	// 初始化业务服务
 	userService := NewUserService(repos.AppUserDAO, repos.UserWeightDAO, repos.UserGoalDAO)
-	healthAnalysisService := NewHealthAnalysisService(repos.AppUserDAO, repos.UserWeightDAO, repos.UserGoalDAO, repos.HealthAnalysisDAO)
+	healthAnalysisService := NewHealthAnalysisService(repos.AppUserDAO, repos.UserWeightDAO, repos.UserHeightDAO, repos.UserGoalDAO, repos.HealthAnalysisDAO)
 	nutritionService := NewNutritionService(repos.DailyNutritionDAO, repos.HealthAnalysisDAO)
 	chatService := NewChatService(repos.ChatDAO, aiService)
 	foodRecognitionService := NewFoodRecognitionService(
@@ -40,6 +41,7 @@ func Init(repos *repositories.Repositories, cfg *config.Config) *Services {
 	exerciseService := NewExerciseService(repos.UserExerciseDAO)
 	moodService := NewMoodService(repos.MoodRecordDAO)
 	weightService := NewWeightService(repos.UserWeightDAO)
+	heightService := NewHeightService(repos.UserHeightDAO)
 
 	return &Services{
 		UserService:            userService,
@@ -52,5 +54,6 @@ func Init(repos *repositories.Repositories, cfg *config.Config) *Services {
 		ExerciseService:        exerciseService,
 		MoodService:            moodService,
 		WeightService:          weightService,
+		HeightService:          heightService,
 	}
 }

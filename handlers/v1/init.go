@@ -16,5 +16,6 @@ func Init(services *services.Services) *Handlers {
 		Exercise:        NewExerciseAPI(services.ExerciseService),
 		Mood:            NewMoodAPI(services.MoodService),
 		Weight:          NewWeightAPI(services.WeightService),
+		Height:          NewHeightAPI(services.HeightService),
 	}
 }

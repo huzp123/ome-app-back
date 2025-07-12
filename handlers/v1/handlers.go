@@ -15,6 +15,7 @@ type Handlers struct {
 	Exercise        *ExerciseAPI
 	Mood            *MoodAPI
 	Weight          *WeightAPI
+	Height          *HeightAPI
 }
 
 // NewHandlers 创建新的Handlers实例
@@ -28,6 +29,7 @@ func NewHandlers(
 	exerciseService *services.ExerciseService,
 	moodService *services.MoodService,
 	weightService *services.WeightService,
+	heightService *services.HeightService,
 ) *Handlers {
 	return &Handlers{
 		User:            NewUserAPI(userService),
@@ -39,5 +41,6 @@ func NewHandlers(
 		Exercise:        NewExerciseAPI(exerciseService),
 		Mood:            NewMoodAPI(moodService),
 		Weight:          NewWeightAPI(weightService),
+		Height:          NewHeightAPI(heightService),
 	}
 }

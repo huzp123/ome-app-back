@@ -17,9 +17,8 @@ type AppUser struct {
 	WechatOpenID sql.NullString `json:"wechat_openid" gorm:"column:wechat_openid;size:64;uniqueIndex:idx_wechat_openid,where:wechat_openid IS NOT NULL"` // 微信OpenID
 	AvatarURL    sql.NullString `json:"avatar_url"    gorm:"column:avatar_url;size:255"`                                                                 // 头像URL
 
-	HeightCM  sql.NullFloat64 `json:"height_cm"  gorm:"type:decimal(5,2);check:height_cm IS NULL OR (height_cm BETWEEN 50 AND 300)"`
-	BirthDate time.Time       `json:"birth_date" gorm:"type:date;default:null"`
-	Sex       string          `json:"sex"        gorm:"size:6"` // male / female / other
+	BirthDate time.Time `json:"birth_date" gorm:"type:date;default:null"`
+	Sex       string    `json:"sex"        gorm:"size:6"` // male / female / other
 
 	CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
 	UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`

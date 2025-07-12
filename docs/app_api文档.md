@@ -167,7 +167,6 @@ GET /user/info
     "email": "zhangsan@example.com",
     "wechat_openid": "微信OpenID",    // 微信登录用户的OpenID
     "avatar_url": "头像URL",          // 用户头像URL
-    "height_cm": 175.0,
     "birth_date": "1990-01-01",
     "sex": "male",
     "created_at": "2023-04-01T12:00:00Z",
@@ -193,7 +192,6 @@ PUT /user/profile
 {
   "phone": "string",            // 手机号
   "email": "string",            // 邮箱
-  "height_cm": 175.0,           // 身高(厘米)，必须在50-300cm范围内
   "birth_date": "2000-01-01",   // 出生日期，格式YYYY-MM-DD
   "sex": "male",                // 性别: male/female/other
   "weight_kg": 70.5             // 当前体重(公斤)
@@ -202,7 +200,6 @@ PUT /user/profile
 
 **说明**
 - 所有字段均为可选，只需填写需要更新的信息
-- 身高字段有限制，必须在50-300cm范围内
 - 更新手机号或邮箱时会检查唯一性，不能使用已被其他用户注册的联系方式
 
 **响应**
@@ -272,6 +269,147 @@ GET /user/goal
 **说明**
 - 如果用户还没有设置健康目标，`data`字段将为`null`
 - 首次使用的用户需要先通过更新健康目标接口设置目标后才能获取到数据
+
+## 身高管理相关接口（需要认证）
+
+### 记录身高
+
+**请求**
+```
+POST /user/height
+```
+
+**请求参数**
+```json
+{
+  "height_cm": 175.0  // 身高(厘米)，范围50-300cm
+}
+```
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": null
+}
+```
+
+### 获取身高历史记录
+
+**请求**
+```
+GET /user/height/history?limit=30
+```
+
+**查询参数**
+- limit: 可选，限制返回的记录数量，默认为30，最多获取一年内的数据
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": [
+    {
+      "id": 1,
+      "height_cm": 175.0,
+      "record_date": "2023-05-01T00:00:00Z",
+      "created_at": "2023-05-01T10:30:00Z"
+    },
+    {
+      "id": 2,
+      "height_cm": 174.8,
+      "record_date": "2023-04-30T00:00:00Z",
+      "created_at": "2023-04-30T09:15:00Z"
+    }
+  ]
+}
+```
+
+### 获取当前身高信息
+
+**请求**
+```
+GET /user/height/current
+```
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": {
+    "height_cm": 175.0,
+    "record_date": "2023-05-01T00:00:00Z",
+    "days_ago": 2  // 距离现在多少天前记录的
+  }
+}
+```
+
+### 删除身高记录
+
+**请求**
+```
+DELETE /user/height/{id}
+```
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": null
+}
+```
+
+**说明**
+- 只能删除自己的身高记录
+- 删除不存在的记录会返回错误
+
+### 获取身高统计分析
+
+**请求**
+```
+GET /user/height/statistics?days=30
+```
+
+**查询参数**
+- days: 可选，统计天数，默认为30天
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": {
+    "current_height": 175.0,    // 当前身高
+    "min_height": 174.5,        // 最低身高
+    "max_height": 175.2,        // 最高身高
+    "avg_height": 174.8,        // 平均身高
+    "height_change": 0.5,       // 身高变化(正数为增加，负数为减少)
+    "trend_data": [             // 趋势数据点，用于绘制图表
+      {
+        "date": "2023-04-01T00:00:00Z",
+        "height_cm": 174.5
+      },
+      {
+        "date": "2023-04-15T00:00:00Z",
+        "height_cm": 174.8
+      },
+      {
+        "date": "2023-05-01T00:00:00Z",
+        "height_cm": 175.0
+      }
+    ]
+  }
+}
+```
+
+**说明**
+- 统计数据基于指定天数内的身高记录
+- trend_data 按时间顺序排列，可用于绘制身高变化曲线
+- 如果没有身高记录会返回错误
 
 ## 健康分析相关接口（需要认证）
 

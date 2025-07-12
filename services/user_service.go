@@ -174,7 +174,7 @@ func (s *UserService) Login(req LoginRequest) (*LoginResponse, error) {
 	}
 
 	// 检查用户档案是否完善
-	isProfileComplete := user.HeightCM.Valid && !user.BirthDate.IsZero() && user.Sex != ""
+	isProfileComplete := !user.BirthDate.IsZero() && user.Sex != ""
 
 	// 生成JWT Token
 	token, err := middleware.GenerateToken(user.ID)
@@ -257,8 +257,8 @@ func (s *UserService) WechatLogin(req WechatLoginRequest) (*WechatLoginResponse,
 		fmt.Printf("[微信登录] 成功更新用户信息\n")
 	}
 
-	// 检查用户档案是否完善
-	isProfileComplete := user.HeightCM.Valid && !user.BirthDate.IsZero() && user.Sex != ""
+	// 检查用户档案是否完善（移除身高检查，因为身高现在有独立服务）
+	isProfileComplete := !user.BirthDate.IsZero() && user.Sex != ""
 
 	// 生成JWT Token
 	token, err := middleware.GenerateToken(user.ID)
@@ -283,7 +283,6 @@ type UpdateProfileRequest struct {
 	UserID    int64   `json:"user_id"`
 	Phone     string  `json:"phone"`
 	Email     string  `json:"email"`
-	HeightCM  float64 `json:"height_cm"`
 	BirthDate string  `json:"birth_date"` // 格式 YYYY-MM-DD
 	Sex       string  `json:"sex"`        // male/female/other
 	WeightKG  float64 `json:"weight_kg"`
@@ -317,15 +316,6 @@ func (s *UserService) UpdateProfile(req UpdateProfileRequest) error {
 		}
 		user.Email.String = req.Email
 		user.Email.Valid = true
-	}
-
-	// 更新身高
-	if req.HeightCM > 0 {
-		if req.HeightCM < 50 || req.HeightCM > 300 {
-			return errors.New("身高超出合理范围(50-300cm)")
-		}
-		user.HeightCM.Float64 = req.HeightCM
-		user.HeightCM.Valid = true
 	}
 
 	// 更新出生日期
@@ -425,7 +415,6 @@ type GetUserInfoResponse struct {
 	Email             string    `json:"email,omitempty"`
 	WechatOpenID      string    `json:"wechat_openid,omitempty"`
 	AvatarURL         string    `json:"avatar_url,omitempty"`
-	HeightCM          float64   `json:"height_cm,omitempty"`
 	BirthDate         string    `json:"birth_date,omitempty"`
 	Sex               string    `json:"sex,omitempty"`
 	CreatedAt         time.Time `json:"created_at"`
@@ -461,51 +450,38 @@ func (s *UserService) GetGoal(userID int64) (*GetUserGoalResponse, error) {
 
 // GetUserInfo 获取用户信息
 func (s *UserService) GetUserInfo(userID int64) (*GetUserInfoResponse, error) {
-	// 获取用户信息
 	user, err := s.userDAO.GetByID(userID)
 	if err != nil {
 		return nil, errors.New("获取用户信息失败")
 	}
 
-	// 构建响应数据
 	response := &GetUserInfoResponse{
 		ID:        user.ID,
 		UserName:  user.UserName,
 		CreatedAt: user.CreatedAt,
 		UpdatedAt: user.UpdatedAt,
+		Sex:       user.Sex,
 	}
 
-	// 处理可选字段
+	// 设置可选字段
 	if user.Phone.Valid {
 		response.Phone = user.Phone.String
 	}
-
 	if user.Email.Valid {
 		response.Email = user.Email.String
 	}
-
 	if user.WechatOpenID.Valid {
 		response.WechatOpenID = user.WechatOpenID.String
 	}
-
 	if user.AvatarURL.Valid {
 		response.AvatarURL = user.AvatarURL.String
 	}
-
-	if user.HeightCM.Valid {
-		response.HeightCM = user.HeightCM.Float64
-	}
-
 	if !user.BirthDate.IsZero() {
 		response.BirthDate = user.BirthDate.Format("2006-01-02")
 	}
 
-	if user.Sex != "" {
-		response.Sex = user.Sex
-	}
-
-	// 检查用户档案是否完善
-	response.IsProfileComplete = user.HeightCM.Valid && !user.BirthDate.IsZero() && user.Sex != ""
+	// 检查用户档案是否完善（移除身高检查，因为身高现在有独立服务）
+	response.IsProfileComplete = !user.BirthDate.IsZero() && user.Sex != ""
 
 	return response, nil
 }

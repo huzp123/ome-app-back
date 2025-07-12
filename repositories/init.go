@@ -8,6 +8,7 @@ import (
 type Repositories struct {
 	AppUserDAO         *AppUserDAO
 	UserWeightDAO      *UserWeightDAO
+	UserHeightDAO      *UserHeightDAO
 	UserGoalDAO        *UserGoalDAO
 	HealthAnalysisDAO  *HealthAnalysisDAO
 	DailyNutritionDAO  *DailyNutritionDAO
@@ -22,6 +23,7 @@ func Init(db *gorm.DB) *Repositories {
 	return &Repositories{
 		AppUserDAO:         NewAppUserDAO(db),
 		UserWeightDAO:      NewUserWeightDAO(db),
+		UserHeightDAO:      NewUserHeightDAO(db),
 		UserGoalDAO:        NewUserGoalDAO(db),
 		HealthAnalysisDAO:  NewHealthAnalysisDAO(db),
 		DailyNutritionDAO:  NewDailyNutritionDAO(db),
