@@ -10,7 +10,7 @@
 ```
 
 ### 认证方式
-除了登录、注册和健康检查API外，所有请求都需要在Header中加入认证信息：
+除了登录、注册、微信登录和健康检查API外，所有请求都需要在Header中加入认证信息：
 ```
 Authorization: Bearer {token}
 ```
@@ -109,6 +109,43 @@ POST /login
 }
 ```
 
+### 微信登录
+
+**请求**
+```
+POST /wechat/login
+```
+
+**请求参数**
+```json
+{
+  "openid": "string",        // 微信OpenID（必填）
+  "user_name": "string",     // 用户昵称（可选）
+  "avatar_url": "string"     // 头像URL（可选）
+}
+```
+
+**说明**
+- 微信登录支持新用户自动注册和已有用户登录
+- 如果用户不存在，系统会自动创建新用户
+- 如果用户已存在，系统会更新用户信息
+- 微信登录的用户password_hash字段为空，只能通过微信登录
+
+**响应**
+```json
+{
+  "code": 0,
+  "msg": "成功",
+  "data": {
+    "user_id": 123,
+    "user_name": "用户昵称",
+    "token": "JWT令牌",
+    "is_new_user": true,           // 是否为新用户
+    "is_profile_complete": false   // 用户档案是否已完善
+  }
+}
+```
+
 ## 用户相关接口（需要认证）
 
 ### 获取用户信息
@@ -128,6 +165,8 @@ GET /user/info
     "user_name": "张三",
     "phone": "13800138000",
     "email": "zhangsan@example.com",
+    "wechat_openid": "微信OpenID",    // 微信登录用户的OpenID
+    "avatar_url": "头像URL",          // 用户头像URL
     "height_cm": 175.0,
     "birth_date": "1990-01-01",
     "sex": "male",
@@ -137,6 +176,10 @@ GET /user/info
   }
 }
 ```
+
+**说明**
+- `wechat_openid` 和 `avatar_url` 字段仅对微信登录用户有值
+- 普通注册用户这些字段为 `null`
 
 ### 更新用户档案
 
