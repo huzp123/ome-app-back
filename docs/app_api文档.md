@@ -1644,6 +1644,77 @@ GET /api/v1/mood/options
 }
 ```
 
+### 提交订单
+
+```
+GET /api/v1/order/create
+```
+
+**请求示例**
+```json
+{
+  "store_id": 1,                      // 必填，门店ID
+  "customer_name": "张三",             // 选填，客户姓名
+  "customer_phone": "13800138000",    // 选填，客户电话
+  "order_type": "dine_in",            // 必填，订单类型：dine_in-堂食，takeaway-自取，delivery-外送
+  "payment_method": "wechat",         // 选填，支付方式
+  "voucher_amount": 5.0,              // 选填，代金券抵扣金额
+  "remark": "少盐少油",                // 选填，订单备注
+  "items": [                          // 必填，订单项列表，至少1项
+    {
+      "dish_id": 1,                   // 必填，菜品ID
+      "sku_info": {                   // 必填，SKU信息
+        "id": 1,
+        "name": "大份",
+        "price": 25.0,
+        "weight": 300,
+        "weight_unit": "g"
+      },
+      "options_info": [               // 选填，选项信息
+        {
+          "group_id": 1,
+          "group_name": "辣度",
+          "items": [
+            {
+              "id": 1,
+              "name": "微辣",
+              "extra_price": 0
+            }
+          ]
+        }
+      ],
+      "quantity": 2,                  // 必填，数量
+      "remark": "不要香菜"             // 选填，备注
+    }
+  ]
+}
+```
+
+**响应**
+```json
+{
+    "code": 0,
+    "data": {
+        "OrderID": 1,
+        "OrderNo": "20250804238C4CDA",
+        "StoreID": 1,
+        "CustomerName": "张三",
+        "CustomerPhone": "13800138000",
+        "TotalAmount": 50,
+        "ActualAmount": 49,
+        "VoucherAmount": 5,
+        "PackagingFee": 4,
+        "OrderType": "dine_in",
+        "PaymentMethod": "wechat",
+        "Remark": "少盐少油",
+        "CreatedAt": "2025-08-04 18:55:07.607 +0800 CST",
+        "UpdatedAt": "2025-08-04 18:55:07.607 +0800 CST"
+    },
+    "msg": "成功"
+}
+```
+
+
 ## 文件访问相关接口
 
 ### 获取文件（公共）
